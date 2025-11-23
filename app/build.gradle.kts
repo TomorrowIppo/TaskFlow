@@ -59,6 +59,9 @@ dependencies {
     // Firebase (Using BOM for version management)
     implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.runtime)
 
     //implementation(libs.firebase.auth.ktx)
 
