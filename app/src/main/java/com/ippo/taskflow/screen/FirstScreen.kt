@@ -1,5 +1,3 @@
-// [새 파일] FirstScreen.kt 파일
-
 package com.ippo.taskflow.screen
 
 import androidx.compose.foundation.background
@@ -12,7 +10,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+// 🚨 새로 추가된 Import
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.R // R 클래스 접근을 위해 필요할 수 있음
 
 // 💡 MVVM 표준: AuthViewModel과 네비게이션 액션만 인자로 받는다.
 @Composable
@@ -47,8 +49,15 @@ fun FirstScreen(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
         ) {
-            // ... UI 요소 (이미지, 제목 등) ...
-            Spacer(modifier = Modifier.height(250.dp))
+            // 🖼️ 이미지 통합: 기존 Spacer를 Image로 교체
+            Image(
+                painter = painterResource(id = R.drawable.frame_first), // 👈 리소스 ID 사용
+                contentDescription = "TaskFlow Onboarding Illustration", // 접근성을 위한 설명
+                modifier = Modifier
+                    .height(400.dp) // 높이는 기존 Spacer와 동일하게 유지
+                    .fillMaxWidth() // 너비는 콘텐츠에 맞게 확장
+            )
+
             Spacer(modifier = Modifier.height(32.dp))
             Text(
                 text = "TaskFlow",
