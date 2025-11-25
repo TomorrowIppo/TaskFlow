@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended")
 
     // Firebase (Using BOM for version management)
     implementation(platform("com.google.firebase:firebase-bom:34.6.0"))

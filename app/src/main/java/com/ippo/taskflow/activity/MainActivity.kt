@@ -69,14 +69,21 @@ fun AppNavigation() {
             )
         }
 
-        // 3-2. 🔑 로그인 화면 정의 (MVVM 적용)
+        // 3-2. 🔑 로그인 화면 정의 (업데이트 지점)
         composable(ROUTE_LOGIN) {
-            // LoginScreen에게 AuthViewModel을 주입
             LoginScreen(
                 authViewModel = authViewModel,
                 onNavigateToMain = {
                     navController.navigate(ROUTE_MAIN) { popUpTo(ROUTE_LOGIN) { inclusive = true } }
                 },
+                // 🚨🚨 새로 추가된 인자들 🚨🚨
+                onNavigateToSignup = {
+                    navController.navigate(ROUTE_LOGIN)
+                },
+                onNavigateBack = {
+                    // 로그인 화면에서 뒤로가기 누르면 온보딩으로 돌아감
+                    navController.popBackStack()
+                }
             )
         }
 
