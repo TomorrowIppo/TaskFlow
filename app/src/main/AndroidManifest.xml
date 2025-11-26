@@ -15,6 +15,11 @@
         android:theme="@style/Theme.TaskFlow">
         <activity
             android:name=".activity.MainActivity"
+            android:exported="false"
+            android:label="@string/title_activity_test"
+            android:theme="@style/Theme.TaskFlow" />
+        <activity
+            android:name=".activity.TestActivity"
             android:exported="true"
             android:label="@string/title_activity_first"
             android:theme="@style/Theme.TaskFlow">

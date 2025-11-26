@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.ippo.taskflow.data.Group // 💡 Group 모델 Import
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -99,5 +100,75 @@ class GroupViewModel : ViewModel() {
             }
     }
 
+    fun deleteGroup(groupId: String) {
+        if (groupId.isBlank()) {
+            _error.value = "그룹 ID가 유효하지 않습니다."
+            return
+        }
+
+        _isLoading.value = true
+        _error.value = null
+
+        db.collection("groups").document(groupId)
+            .delete()
+            .addOnSuccessListener {
+                _isLoading.value = false
+                // 💡 삭제 성공 후, SnapshotListener가 자동으로 groupList를 업데이트합니다.
+                // Log.d("GroupTest", "SUCCESS: 그룹 삭제 완료.")
+            }
+            .addOnFailureListener { e ->
+                _isLoading.value = false
+                _error.value = "그룹 삭제 실패: ${e.message}"
+            }
+    }
+
     // TODO: addMember(groupId: String, email: String) 구현 (가장 복잡한 로직)
+    // [GroupViewModel.kt] 파일 내부에 추가
+
+// 🚨 필요한 import가 없다면 추가해 주세요
+// import com.google.firebase.firestore.FieldValue
+
+    // 🚨🚨 수정된 함수 1: addMember (필드명 memberUids로 수정)
+    fun addMember(groupId: String, memberId: String) {
+        if (groupId.isBlank() || memberId.isBlank()) {
+            _error.value = "그룹 ID 또는 멤버 ID가 유효하지 않습니다."
+            return
+        }
+
+        _isLoading.value = true
+        _error.value = null
+
+        db.collection("groups").document(groupId)
+            // 🚨 필드 이름을 'memberUids'로 수정
+            .update("memberUids", FieldValue.arrayUnion(memberId))
+            .addOnSuccessListener {
+                _isLoading.value = false
+            }
+            .addOnFailureListener { e ->
+                _isLoading.value = false
+                _error.value = "멤버 추가 실패: ${e.message}"
+            }
+    }
+
+    // 🚨🚨 수정된 함수 2: deleteMember (필드명 memberUids로 수정)
+    fun deleteMember(groupId: String, memberId: String) {
+        if (groupId.isBlank() || memberId.isBlank()) {
+            _error.value = "그룹 ID 또는 멤버 ID가 유효하지 않습니다."
+            return
+        }
+
+        _isLoading.value = true
+        _error.value = null
+
+        db.collection("groups").document(groupId)
+            // 🚨 필드 이름을 'memberUids'로 수정
+            .update("memberUids", FieldValue.arrayRemove(memberId))
+            .addOnSuccessListener {
+                _isLoading.value = false
+            }
+            .addOnFailureListener { e ->
+                _isLoading.value = false
+                _error.value = "멤버 삭제 실패: ${e.message}"
+            }
+    }
 }

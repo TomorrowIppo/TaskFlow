@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
-import com.google.firebase.firestore.firestore // 🚨 [추가 1] Firestore Import
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -40,7 +40,7 @@ class AuthViewModel : ViewModel() {
     private val _passwordError = MutableStateFlow<String?>(null)
     val passwordError: StateFlow<String?> = _passwordError
 
-    // 🚨 [추가 2] 회원가입용 폼 에러 상태 및 성공 상태
+    // 🚨 회원가입용 폼 에러 상태 및 성공 상태 (기존 유지)
     private val _nameError = MutableStateFlow<String?>(null)
     val nameError: StateFlow<String?> = _nameError
 
@@ -50,7 +50,7 @@ class AuthViewModel : ViewModel() {
     private val _isRegistrationSuccessful = MutableStateFlow(false)
     val isRegistrationSuccessful: StateFlow<Boolean> = _isRegistrationSuccessful
 
-    // 🚨 [추가 3] 회원가입 성공 상태 초기화 함수 (RegisterScreen에서 사용 후 호출)
+    // 🚨 회원가입 성공 상태 초기화 함수 (기존 유지)
     fun clearRegistrationSuccess() {
         _isRegistrationSuccessful.value = false
     }
@@ -58,27 +58,85 @@ class AuthViewModel : ViewModel() {
     val userId: String?
         get() = Firebase.auth.currentUser?.uid
 
-    // 2. 비즈니스 로직: Email/PW 로그인 및 익명 로그인 폴백 통합 (기존 유지)
+    // -------------------------------------------------------------------------
+    // 2. 🔑 [복구된 로직] Email/PW 로그인 및 익명 로그인 폴백 통합
+    // -------------------------------------------------------------------------
     fun signIn(email: String, password: String) {
-        // ... (기존 signIn 로직) ...
+        // 입력 유효성 검사 상태 초기화
+        _emailError.value = null
+        _passwordError.value = null
+
+        // 🚨 1단계: 유효성 검사 (둘 다 비어있을 때만 익명 로그인 폴백 호출)
+        if (email.isBlank() && password.isBlank()) {
+            signInAsGuest()
+            return
+        }
+
+        // 2단계: Email/PW 형식 검사 및 에러 메시지 업데이트
+        if (!EMAIL_ADDRESS_PATTERN.matcher(email).matches()) {
+            _emailError.value = "유효하지 않은 이메일 형식입니다."
+            return
+        }
+        if (password.length < 6) {
+            _passwordError.value = "비밀번호는 최소 6자 이상이어야 합니다."
+            return
+        }
+
+        // 3단계: Firebase 이메일/PW 로그인 시도
+        _isLoading.value = true
+        _error.value = null
+
+        viewModelScope.launch {
+            try {
+                val result = Firebase.auth.signInWithEmailAndPassword(email, password).await()
+                _isAuthenticated.value = result.user != null
+                _isLoading.value = false
+
+            } catch (e: Exception) {
+                _error.value = "로그인 실패: 사용자 정보를 확인해주세요."
+                _isAuthenticated.value = false
+                _isLoading.value = false
+            }
+        }
     }
 
-    // 3. 비즈니스 로직: 익명 로그인 처리 (기존 유지)
+    // -------------------------------------------------------------------------
+    // 3. 🗝️ [복구된 로직] 익명 로그인 처리
+    // -------------------------------------------------------------------------
     fun signInAsGuest() {
-        // ... (기존 signInAsGuest 로직) ...
+        _isLoading.value = true
+        _error.value = null
+
+        viewModelScope.launch {
+            try {
+                val result = Firebase.auth.signInAnonymously().await()
+                _isAuthenticated.value = result.user != null
+                _isLoading.value = false
+
+            } catch (e: Exception) {
+                _error.value = e.message
+                _isAuthenticated.value = false
+                _isLoading.value = false
+            }
+        }
     }
 
-    // 4. 로그아웃 로직 (기존 유지)
+    // -------------------------------------------------------------------------
+    // 4. 🚪 [복구된 로직] 로그아웃 로직
+    // -------------------------------------------------------------------------
     fun signOut() {
-        // ... (기존 signOut 로직) ...
+        Firebase.auth.signOut()
+        _isAuthenticated.value = false
     }
 
-    // 5. 오류 초기화 로직 (기존 유지)
+    // -------------------------------------------------------------------------
+    // 5. 🧹 [복구된 로직] 오류 초기화 로직
+    // -------------------------------------------------------------------------
     fun clearError() {
         _error.value = null
     }
 
-    // 🚨 [추가 4] 회원가입 로직: 이름, 이메일, 비밀번호, 비밀번호 확인 처리
+    // 🚨 [추가 4] 회원가입 로직: 이름, 이메일, 비밀번호, 비밀번호 확인 처리 (기존 유지)
     fun registerUser(name: String, email: String, password: String, confirmPassword: String) {
         // 유효성 검사 상태 초기화
         _nameError.value = null
