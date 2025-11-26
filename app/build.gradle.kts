@@ -64,6 +64,13 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.runtime)
 
+    // Firebase Firestore (회원 프로필 저장용)
+    implementation("com.google.firebase:firebase-firestore")
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.constraintlayout)
+
     //implementation(libs.firebase.auth.ktx)
 
 
