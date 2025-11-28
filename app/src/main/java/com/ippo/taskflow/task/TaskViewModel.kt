@@ -1,13 +1,14 @@
-// com.ippo.taskflow.task/TaskViewModel.kt (핵심 함수 재점검)
 package com.ippo.taskflow.task
 
-
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.ippo.taskflow.data.Task // 🚨 [수정] Task 모델 Import (기존 TaskModel 대신)
+import com.google.firebase.firestore.WriteBatch
+import com.ippo.taskflow.data.Task
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.util.Date
 
 class TaskViewModel : ViewModel() {
@@ -15,7 +16,7 @@ class TaskViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val taskCollection = db.collection("tasks")
 
-    private val _taskList = MutableStateFlow<List<Task>>(emptyList()) // 🚨 [수정] List<Task>
+    private val _taskList = MutableStateFlow<List<Task>>(emptyList())
     val taskList: StateFlow<List<Task>> = _taskList
 
     private val _isLoading = MutableStateFlow(false)
@@ -27,7 +28,7 @@ class TaskViewModel : ViewModel() {
     private var taskListener: ListenerRegistration? = null
 
     init {
-        loadTasks()
+        // TestScreen에서 로드 책임을 위임받았으므로 init 블록은 비워둡니다.
     }
 
     override fun onCleared() {
@@ -35,7 +36,7 @@ class TaskViewModel : ViewModel() {
         taskListener?.remove()
     }
 
-    // C: Create Task (작업 생성)
+    // C: Create Task
     fun createTask(groupId: String, title: String, assignedToUid: String, dueDate: Date?, priority: Int) {
         if (groupId.isBlank() || title.isBlank()) {
             _error.value = "그룹 ID와 제목은 필수입니다."
@@ -46,15 +47,15 @@ class TaskViewModel : ViewModel() {
 
         val newDocRef = taskCollection.document()
         val taskId = newDocRef.id
-        val task = Task( // 🚨 [수정] Task 클래스 사용
+        val task = Task(
             taskId = taskId,
             groupId = groupId,
             title = title,
             assignedToUid = assignedToUid,
-            status = "TODO", // 기본 상태
-            priority = priority, // 우선순위 사용
-            dueDate = dueDate
-            // description, createdByUid 등은 임시로 생략 가능
+            status = "TODO",
+            priority = priority,
+            dueDate = dueDate,
+            createdAt = Date()
         )
 
         newDocRef.set(task)
@@ -65,8 +66,8 @@ class TaskViewModel : ViewModel() {
             }
     }
 
-    // R: Read/Load Tasks (Snapshot Listener 사용)
-    fun loadTasks(groupId: String? = null) {
+    // R: Read/Load Tasks (특정 Group ID로 필터링)
+    fun loadTasks(groupId: String?) {
         _isLoading.value = true
         _error.value = null
         taskListener?.remove()
@@ -75,6 +76,10 @@ class TaskViewModel : ViewModel() {
 
         if (groupId != null && groupId.isNotBlank()) {
             query = query.whereEqualTo("groupId", groupId)
+        } else {
+            _taskList.value = emptyList()
+            _isLoading.value = false
+            return
         }
 
         taskListener = query.addSnapshotListener { snapshot, e ->
@@ -86,7 +91,7 @@ class TaskViewModel : ViewModel() {
             }
 
             if (snapshot != null) {
-                val tasks = snapshot.toObjects(Task::class.java) // 🚨 [수정] Task 클래스 사용
+                val tasks = snapshot.toObjects(Task::class.java)
                 _taskList.value = tasks
             } else {
                 _taskList.value = emptyList()
@@ -98,7 +103,7 @@ class TaskViewModel : ViewModel() {
     fun updateTaskStatus(taskId: String, newStatus: String) {
         if (taskId.isBlank()) return
 
-        val updates = mapOf("status" to newStatus) // 🚨 [수정] isCompleted 대신 status 필드를 사용
+        val updates = mapOf("status" to newStatus)
 
         _isLoading.value = true
         _error.value = null
@@ -114,7 +119,6 @@ class TaskViewModel : ViewModel() {
 
     // D: Delete Task
     fun deleteTask(taskId: String) {
-        // ... (기존 로직 유지) ...
         if (taskId.isBlank()) return
 
         _isLoading.value = true
@@ -127,5 +131,31 @@ class TaskViewModel : ViewModel() {
                 _isLoading.value = false
                 _error.value = "작업 삭제 실패: ${e.message}"
             }
+    }
+
+    /**
+     * 🚨 Task 일괄 삭제 기능 (Cascading Delete Executor)
+     */
+    fun deleteAllTasksInGroup(groupId: String) {
+        if (groupId.isBlank()) return
+
+        viewModelScope.launch {
+            db.collection("tasks")
+                .whereEqualTo("groupId", groupId)
+                .get()
+                .addOnSuccessListener { querySnapshot ->
+                    val batch: WriteBatch = db.batch()
+                    for (document in querySnapshot.documents) {
+                        batch.delete(document.reference)
+                    }
+                    batch.commit()
+                        .addOnFailureListener { e ->
+                            _error.value = "Task 일괄 삭제 실패 (Commit): ${e.message}"
+                        }
+                }
+                .addOnFailureListener { e ->
+                    _error.value = "Task 쿼리 실패: ${e.message}"
+                }
+        }
     }
 }
