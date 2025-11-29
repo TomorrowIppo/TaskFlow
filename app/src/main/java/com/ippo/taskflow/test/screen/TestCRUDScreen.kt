@@ -1,5 +1,6 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.test.screen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,30 +17,37 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.ippo.taskflow.group.GroupViewModel
 import com.ippo.taskflow.task.TaskViewModel
-import com.ippo.taskflow.data.Task
-import com.ippo.taskflow.data.Group
-import java.util.Date
+import com.ippo.taskflow.data.Task // 🚨 Data Class Import
+import com.ippo.taskflow.data.Group // 🚨 Data Class Import
+import java.util.Date // Date Import
 
+// 🚨 PM Note: 주 색상 상수 정의
+val TaskFlowGreen = Color(0xFF1E8A3B)
+
+
+// =========================================================================
+// 1. 메인 테스트 호스트 컴포저블 (Main Host Composable)
+// =========================================================================
 
 @Composable
-fun TestScreen(
+fun TestCRUDScreen(
     groupViewModel: GroupViewModel,
-    taskViewModel: TaskViewModel
+    taskViewModel: TaskViewModel,
+    onLogout: () -> Unit
 ) {
-    // 1. Group ViewModel 상태 관찰
+    // 1. ViewModel 상태 관찰
     val groups by groupViewModel.groupList.collectAsState()
     val groupIsLoading by groupViewModel.isLoading.collectAsState()
     val groupError by groupViewModel.error.collectAsState()
 
-    // 2. Task ViewModel 상태 관찰
     val tasks by taskViewModel.taskList.collectAsState()
     val taskIsLoading by taskViewModel.isLoading.collectAsState()
     val taskError by taskViewModel.error.collectAsState()
 
-    // 3. 🚨 Task 작업을 위한 선택된 그룹 ID 상태
+    // 2. Task 작업을 위한 선택된 그룹 ID 상태
     var selectedGroupId by remember { mutableStateOf<String?>(null) }
 
-    // 그룹이 로드될 때, selectedGroupId가 비어있거나 삭제된 그룹이라면 첫 번째 그룹으로 초기 설정
+    // 그룹이 로드될 때, selectedGroupId를 유효한 첫 번째 그룹으로 초기 설정
     LaunchedEffect(groups) {
         if (groups.isNotEmpty() && (selectedGroupId == null || groups.none { it.groupId == selectedGroupId })) {
             selectedGroupId = groups.first().groupId
@@ -54,17 +62,28 @@ fun TestScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("TaskFlow 통합 테스트 화면", style = MaterialTheme.typography.headlineMedium)
+        // 🚨🚨 [수정] 제목과 로그아웃 버튼을 수직으로 배치하여 충돌 방지
+        Text("Task/Group CRUD 테스트 화면", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+
+        Button(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 8.dp), // 너비 조정
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF424242)),
+            contentPadding = PaddingValues(vertical = 4.dp)
+        ) {
+            Text("로그아웃 (세션 종료)", style = MaterialTheme.typography.bodyMedium)
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Group 테스트 섹션 (TaskViewModel 전달)
+        // Group 테스트 섹션
         Card(modifier = Modifier.fillMaxWidth().heightIn(min = 350.dp, max = 350.dp)) {
             GroupTestSection(
                 groups = groups,
                 isLoading = groupIsLoading,
                 error = groupError,
                 groupViewModel = groupViewModel,
-                taskViewModel = taskViewModel // 🚨 TaskViewModel 전달
+                taskViewModel = taskViewModel // TaskViewModel 전달
             )
         }
 
@@ -75,7 +94,9 @@ fun TestScreen(
             TaskTestSection(
                 groups = groups,
                 selectedGroupId = selectedGroupId,
-                onGroupSelected = { selectedGroupId = it },
+                onGroupSelected = { newId ->
+                    selectedGroupId = newId
+                },
                 tasks = tasks,
                 isLoading = taskIsLoading,
                 error = taskError,
@@ -86,16 +107,17 @@ fun TestScreen(
 }
 
 
-// ----------------------------------------------------
-// 그룹 테스트 전용 Composable (Group CRUD + 멤버) - [수정] Task 삭제 연동
-// ----------------------------------------------------
+// =========================================================================
+// 2. GroupTestSection (그룹 CRUD 및 멤버 관리)
+// =========================================================================
+
 @Composable
 fun GroupTestSection(
     groups: List<Group>,
     isLoading: Boolean,
     error: String?,
     groupViewModel: GroupViewModel,
-    taskViewModel: TaskViewModel // 🚨 TaskViewModel 추가
+    taskViewModel: TaskViewModel // TaskViewModel 추가
 ) {
     val testMemberId = "DEV_MEMBER_B456"
 
@@ -158,6 +180,8 @@ fun GroupTestSection(
                         groupName = group.name,
                         groupId = group.groupId,
                         onDeleteClicked = {
+                            // 🚨 그룹 삭제 시 Task 자동 삭제 (Cascading Delete)
+                            taskViewModel.deleteAllTasksInGroup(group.groupId)
                             groupViewModel.deleteGroup(group.groupId)
                         }
                     )
@@ -169,6 +193,121 @@ fun GroupTestSection(
     }
 }
 
+// =========================================================================
+// 3. TaskTestSection (작업 CRUD)
+// =========================================================================
+
+@Composable
+fun TaskTestSection(
+    groups: List<Group>,
+    selectedGroupId: String?,
+    onGroupSelected: (String) -> Unit,
+    tasks: List<Task>,
+    isLoading: Boolean,
+    error: String?,
+    taskViewModel: TaskViewModel
+) {
+    // 🚨 [핵심 유지] 선택된 그룹 ID가 바뀔 때 Task 로드를 자동으로 트리거
+    LaunchedEffect(selectedGroupId) {
+        if (selectedGroupId != null) {
+            taskViewModel.loadTasks(selectedGroupId)
+        }
+    }
+
+    val selectedGroup = groups.find { it.groupId == selectedGroupId }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("작업 관리 (Task CRUD)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+
+        if (isLoading) { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+        else if (error != null) { Text("에러: $error", color = MaterialTheme.colorScheme.error) }
+        else { Text("로드된 작업 수: ${tasks.size}", style = MaterialTheme.typography.bodyMedium) }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (groups.isEmpty()) {
+            Text("Task를 테스트하려면 Group을 먼저 **생성 및 로드**해야 합니다.", color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(8.dp))
+            return
+        }
+
+        // 그룹 변경 및 현재 그룹 표시
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            selectedGroup?.let {
+                Text(
+                    "현재 그룹: ${it.name} (ID: ${it.groupId.take(4)}..)",
+                    style = MaterialTheme.typography.titleMedium.copy(color = TaskFlowGreen),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // 🔄 그룹 순차 변경 버튼
+            Button(
+                onClick = {
+                    val currentIndex = groups.indexOfFirst { it.groupId == selectedGroupId }
+                    if (currentIndex != -1) {
+                        val nextIndex = (currentIndex + 1) % groups.size
+                        onGroupSelected(groups[nextIndex].groupId) // 다음 그룹으로 업데이트
+                    }
+                },
+                enabled = groups.size > 1 && !isLoading
+            ) {
+                Text("그룹 변경")
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 🚀 Task 생성 버튼 (전체 너비 사용)
+        Button(
+            onClick = {
+                if (selectedGroupId != null) {
+                    taskViewModel.createTask(
+                        groupId = selectedGroupId,
+                        title = "New Task ${tasks.size + 1}",
+                        assignedToUid = "DEV_TEST_USER",
+                        dueDate = Date(),
+                        priority = 1
+                    )
+                }
+            },
+            enabled = !isLoading && selectedGroupId != null,
+            modifier = Modifier.fillMaxWidth().height(50.dp)
+        ) {
+            Text("작업 생성")
+        }
+
+
+        Divider(Modifier.padding(vertical = 8.dp))
+
+        // Task 목록 (R/U/D 테스트)
+        if (tasks.isNotEmpty()) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(tasks, key = { it.taskId }) { task ->
+                    TaskListItem(
+                        task = task,
+                        onToggleComplete = { newCheckedState ->
+                            val newStatus = if (newCheckedState) "DONE" else "TODO"
+                            taskViewModel.updateTaskStatus(task.taskId, newStatus)
+                        },
+                        onDeleteClicked = {
+                            taskViewModel.deleteTask(task.taskId)
+                        }
+                    )
+                }
+            }
+        } else if (!isLoading && error == null) {
+            Text("로드된 작업이 없습니다. 위에 생성 버튼을 눌러보세요.", modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+// ----------------------------------------------------
+// 4. SUPPORTING LIST ITEMS
+// ----------------------------------------------------
 
 @Composable
 fun GroupListItem(groupName: String, groupId: String, onDeleteClicked: () -> Unit) {
@@ -193,115 +332,6 @@ fun GroupListItem(groupName: String, groupId: String, onDeleteClicked: () -> Uni
         }
     }
     Divider()
-}
-
-
-// ----------------------------------------------------
-// 작업 테스트 전용 Composable (Task CRUD) - [수정] 순차적 그룹 변경 버튼
-// ----------------------------------------------------
-@Composable
-fun TaskTestSection(
-    groups: List<Group>,
-    selectedGroupId: String?,
-    onGroupSelected: (String) -> Unit,
-    tasks: List<Task>,
-    isLoading: Boolean,
-    error: String?,
-    taskViewModel: TaskViewModel
-) {
-    // 🚨🚨 [핵심 유지] 선택된 그룹 ID가 바뀌면 Task 로드를 자동으로 트리거
-    LaunchedEffect(selectedGroupId) {
-        if (selectedGroupId != null) {
-            taskViewModel.loadTasks(selectedGroupId)
-        }
-    }
-
-    val selectedGroup = groups.find { it.groupId == selectedGroupId }
-
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("작업 관리 (Task CRUD)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-
-        if (isLoading) { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-        else if (error != null) { Text("에러: $error", color = MaterialTheme.colorScheme.error) }
-        else { Text("로드된 작업 수: ${tasks.size}", style = MaterialTheme.typography.bodyMedium) }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (groups.isEmpty()) {
-            Text("Task를 테스트하려면 Group을 먼저 **생성 및 로드**해야 합니다.", color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
-            return
-        }
-
-        // 🚀 그룹 선택 및 생성 버튼 Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // C: Create Task 버튼
-            Button(
-                onClick = {
-                    if (selectedGroupId != null) {
-                        taskViewModel.createTask(
-                            groupId = selectedGroupId, // 🚨 선택된 그룹 ID 사용
-                            title = "New Task ${tasks.size + 1}",
-                            assignedToUid = "DEV_TEST_USER",
-                            dueDate = Date(),
-                            priority = 1
-                        )
-                    }
-                },
-                enabled = !isLoading && selectedGroupId != null,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("작업 생성 (${selectedGroup?.name ?: "미선택"})")
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // 🔄 그룹 순차 변경 버튼
-            Button(
-                onClick = {
-                    val currentIndex = groups.indexOfFirst { it.groupId == selectedGroupId }
-                    if (currentIndex != -1) {
-                        val nextIndex = (currentIndex + 1) % groups.size
-                        onGroupSelected(groups[nextIndex].groupId) // 다음 그룹으로 업데이트
-                    }
-                },
-                enabled = groups.size > 1 && !isLoading
-            ) {
-                Text("그룹 변경")
-            }
-        }
-
-        // 현재 선택된 그룹 표시
-        selectedGroup?.let {
-            Text("현재 그룹: ${it.name}", style = MaterialTheme.typography.titleMedium.copy(color = TaskFlowGreen), modifier = Modifier.padding(top = 8.dp))
-        }
-
-        Divider(Modifier.padding(vertical = 8.dp))
-
-        // Task 목록 (R/U/D 테스트)
-        if (tasks.isNotEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(tasks, key = { it.taskId }) { task ->
-                    TaskListItem(
-                        task = task,
-                        onToggleComplete = { newCheckedState ->
-                            val newStatus = if (newCheckedState) "DONE" else "TODO"
-                            taskViewModel.updateTaskStatus(task.taskId, newStatus)
-                        },
-                        onDeleteClicked = {
-                            taskViewModel.deleteTask(task.taskId)
-                        }
-                    )
-                }
-            }
-        } else if (!isLoading && error == null) {
-            Text("로드된 작업이 없습니다. 위에 생성 버튼을 눌러보세요.", modifier = Modifier.padding(top = 8.dp))
-        }
-    }
 }
 
 @Composable

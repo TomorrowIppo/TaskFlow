@@ -1,144 +1,95 @@
 package com.ippo.taskflow.activity
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel // ViewModel 인스턴스 생성을 위한 import
+import androidx.lifecycle.viewmodel.compose.viewModel // ViewModel 인스턴스 생성을 위한 Import
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.ippo.taskflow.ui.theme.TaskFlowTheme
-// 🚨 MVVM Integration Imports (외부 파일에서 분리된 컴포넌트들을 가져옴)
-import com.ippo.taskflow.screen.FirstScreen // 👈 1. 루트 패키지에서 FirstScreen Composable import
-import com.ippo.taskflow.auth.AuthViewModel // ViewModel 클래스 import
-import com.ippo.taskflow.screen.LoginScreen // LoginScreen Composable import
+import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme // 기존 테마 Import
+// 🚨 필수 MVVM/Screen Imports (경로 확인 필요)
+import com.ippo.taskflow.screen.FirstScreen
+import com.ippo.taskflow.auth.AuthViewModel
 
-
-// 1. 🚀 네비게이션 경로 상수 정의 (변화 없음)
+// 🚨 NavHost 경로 상수 정의 (MainActivity에 위치)
 const val ROUTE_MAIN = "main_screen"
 const val ROUTE_LOGIN = "login_screen"
-const val ROUTE_ONBOARDING = "onboarding_screen"
+const val ROUTE_ONBOARDING = "onboarding_screen" // FirstScreen 경로
+const val ROUTE_REGISTER = "register_screen" // 회원가입 경로
+const val ROUTE_CRUD_TEST = "crud_test_screen" // 테스트 화면 경로 (필요시)
 
-// 2. 🖼️ MainActivity: Single Activity Host (변화 없음)
+// [기존 Greeting 및 Preview 함수는 삭제하거나 다른 파일로 옮기셔야 합니다.]
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // 🚨 기존 setContent 로직을 AppNavigation으로 대체
         setContent {
             TaskFlowTheme {
-                AppNavigation()
+                // SAA: MainActivity가 NavHost를 호스팅합니다.
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    AppNavigation()
+                }
             }
         }
     }
 }
 
-// 3. 🧭 AppNavigation: NavHost (화면 전환 시스템) 정의
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
 
-    // 💡 ViewModel 생성: AuthViewModel은 앱 전체에서 인증 상태를 공유하므로 여기서 한 번만 생성
+    // 💡 ViewModel 생성 (DI는 TestActivity에서 진행했으나, 여기서는 표준 생성으로 가정)
     val authViewModel: AuthViewModel = viewModel()
 
-    NavHost(navController = navController, startDestination = ROUTE_ONBOARDING) {
+    // AuthViewModel의 상태를 이용해 FirstScreen에서 바로 Main으로 분기하도록 연결
+    NavHost(
+        navController = navController,
+        startDestination = ROUTE_ONBOARDING // 🚨 FirstScreen을 시작점으로 설정
+    ) {
 
-        // 3-1. FirstScreen (온보딩/스플래시) 정의
+        // 1. FirstScreen (Onboarding/Splash) 경로
         composable(ROUTE_ONBOARDING) {
             FirstScreen(
                 authViewModel = authViewModel,
+                // NavHost로 화면 전환 액션 정의
                 onNavigateToLogin = {
-                    navController.navigate(ROUTE_LOGIN) { popUpTo(ROUTE_ONBOARDING) { inclusive = true } }
+                    navController.navigate(ROUTE_LOGIN) {
+                        popUpTo(ROUTE_ONBOARDING) { inclusive = true } // 백스택 정리
+                    }
                 },
                 onNavigateToMain = {
-                    navController.navigate(ROUTE_MAIN) { popUpTo(ROUTE_ONBOARDING) { inclusive = true } }
+                    navController.navigate(ROUTE_MAIN) {
+                        popUpTo(ROUTE_ONBOARDING) { inclusive = true }
+                    }
                 }
             )
         }
 
-        // 3-2. 🔑 로그인 화면 정의 (업데이트 지점)
+        // 2. LoginScreen 경로 (Placeholder)
         composable(ROUTE_LOGIN) {
-            LoginScreen(
-                authViewModel = authViewModel,
-                onNavigateToMain = {
-                    navController.navigate(ROUTE_MAIN) { popUpTo(ROUTE_LOGIN) { inclusive = true } }
-                },
-                // 🚨🚨 새로 추가된 인자들 🚨🚨
-                onNavigateToSignup = {
-                    navController.navigate(ROUTE_LOGIN)
-                },
-                onNavigateBack = {
-                    // 로그인 화면에서 뒤로가기 누르면 온보딩으로 돌아감
-                    navController.popBackStack()
-                }
-            )
+            // TODO: LoginScreen Composable을 호출하여 구현
+            Text("Login Screen Placeholder", modifier = Modifier.fillMaxSize())
         }
 
-        // 3-3. 메인 TaskFlow 화면 정의 (임시 MainScreen 호출)
+        // 3. MainScreen 경로 (Placeholder)
         composable(ROUTE_MAIN) {
-            MainScreen(
-                authViewModel = authViewModel,
-                onNavigateToOnboarding = {
-                    // 로그아웃 후 온보딩 화면으로 이동하고 스택 정리
-                    navController.navigate(ROUTE_ONBOARDING) { popUpTo(ROUTE_MAIN) { inclusive = true } }
-                }
-            )
+            // TODO: MainScreen Composable을 호출하여 구현
+            Text("Main Screen Placeholder", modifier = Modifier.fillMaxSize())
         }
-    }
-}
 
-
-// 4. 🎨 MainScreen: 임시 구현 (로그아웃 기능)
-@Composable
-fun MainScreen(
-    authViewModel: AuthViewModel,
-    onNavigateToOnboarding: () -> Unit
-) {
-    val context = LocalContext.current
-    val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
-
-    // 💡 로그아웃 상태 변화 감지: 로그아웃되면 온보딩으로 이동
-    // (AuthViewModel.signOut() 호출 후 isAuthenticated가 false가 되는 것을 감지)
-    if (!isAuthenticated) {
-        onNavigateToOnboarding()
-        return // 네비게이션이 발생했으므로 UI 렌더링 중단
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            "메인 TaskFlow 화면 (로그인됨: ${authViewModel.userId})",
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // 🚀 로그아웃 버튼
-        Button(
-            onClick = {
-                authViewModel.signOut() // ViewModel에 로그아웃 요청
-                Toast.makeText(context, "로그아웃되었습니다.", Toast.LENGTH_SHORT).show()
-            }
-        ) {
-            Text("로그아웃")
-        }
+        // ... (나머지 ROUTE_REGISTER, ROUTE_CRUD_TEST 등 추가 가능)
     }
 }

@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
-import com.ippo.taskflow.data.User
+import com.ippo.taskflow.data.User // User 데이터 모델 Import
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -30,12 +30,12 @@ class AuthViewModel : ViewModel() {
     private val usersCollection = db.collection("users")
 
     // ---------------------------------------------------------------------
-    // 1. PUBLIC STATE DEFINITIONS (Composables read these)
+    // 1. PUBLIC STATE DEFINITIONS (Observed by Composables)
     // ---------------------------------------------------------------------
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    private val _isAuthenticated = MutableStateFlow(auth.currentUser != null)
+    private val _isAuthenticated = MutableStateFlow(false) // 초기값은 init에서 설정됨
     val isAuthenticated: StateFlow<Boolean> = _isAuthenticated
 
     private val _currentUser = MutableStateFlow<FirebaseUser?>(null)
@@ -67,49 +67,84 @@ class AuthViewModel : ViewModel() {
         get() = auth.currentUser?.uid
 
     // ---------------------------------------------------------------------
-    // 2. INITIALIZATION AND PROFILE LOADING (omitted for brevity in this final step)
+    // 2. INITIALIZATION AND LIFECYCLE MANAGEMENT
     // ---------------------------------------------------------------------
 
+    init {
+        // 앱 실행 시 상태 확인 및 익명 사용자 로그아웃 처리
+        initializeAuthState()
+
+        // 인증 상태 리스너: 로그인/로그아웃 이벤트 발생 시 상태 업데이트
+        auth.addAuthStateListener { firebaseAuth ->
+            val user = firebaseAuth.currentUser
+            _currentUser.value = user
+            _isAuthenticated.value = user != null
+
+            if (user != null) {
+                loadUserProfile(user.uid)
+            } else {
+                _profile.value = null
+            }
+        }
+    }
+
+    /**
+     * 앱 시작 시 인증 상태를 검사하고 익명 사용자를 자동 로그아웃 처리합니다.
+     */
+    private fun initializeAuthState() {
+        val user = auth.currentUser
+
+        if (user != null) {
+            if (user.isAnonymous) {
+                // 익명 사용자일 경우, 앱 시작 시 세션을 즉시 해제하여 LoginScreen으로 이동시킵니다.
+                auth.signOut()
+                _isAuthenticated.value = false
+            } else {
+                _isAuthenticated.value = true
+            }
+        } else {
+            _isAuthenticated.value = false
+        }
+    }
+
+    private fun loadUserProfile(uid: String) {
+        usersCollection.document(uid).get()
+            .addOnSuccessListener { snapshot ->
+                _profile.value = snapshot.toObject(User::class.java)
+            }
+            .addOnFailureListener { e ->
+                _error.value = "프로필 로드 실패: ${e.message}"
+            }
+    }
+
+
     // ---------------------------------------------------------------------
-    // 3. 🔑 PUBLIC ACTION FUNCTIONS
+    // 3. PUBLIC ACTION FUNCTIONS
     // ---------------------------------------------------------------------
 
     /**
-     * 🚨 [통합된 로직] Email/PW 로그인 및 익명 로그인 폴백 통합
+     * 🚨 [핵심] Email/PW 로그인 및 익명 로그인 폴백 통합
      */
     fun signIn(email: String, password: String) {
-        // 입력 유효성 검사 상태 초기화
         _emailError.value = null
         _passwordError.value = null
 
-        // 1단계: 유효성 검사 (둘 다 비어있을 때만 익명 로그인 허용)
         if (email.isBlank() && password.isBlank()) {
             signInAsGuest()
             return
         }
 
-        // 2단계: Email/PW 형식 검사 및 에러 메시지 업데이트 (간단화)
-        if (!EMAIL_ADDRESS_PATTERN.matcher(email).matches()) {
-            _emailError.value = "유효하지 않은 이메일 형식입니다."
-            return
-        }
-        if (password.length < 6) {
-            _passwordError.value = "비밀번호는 최소 6자 이상이어야 합니다."
-            return
-        }
+        // [Validation logic]
+        if (!EMAIL_ADDRESS_PATTERN.matcher(email).matches()) { _emailError.value = "유효하지 않은 이메일 형식입니다."; return }
+        if (password.length < 6) { _passwordError.value = "비밀번호는 최소 6자 이상이어야 합니다."; return }
 
-        // 3단계: Firebase 이메일/PW 로그인 시도
         _isLoading.value = true
         _error.value = null
 
         auth.signInWithEmailAndPassword(email, password)
-            .addOnSuccessListener { authResult ->
-                _isAuthenticated.value = authResult.user != null
-                _isLoading.value = false
-            }
+            .addOnSuccessListener { _isLoading.value = false }
             .addOnFailureListener { e ->
                 _error.value = "로그인 실패: 사용자 정보를 확인해주세요."
-                _isAuthenticated.value = false
                 _isLoading.value = false
             }
     }
@@ -122,13 +157,9 @@ class AuthViewModel : ViewModel() {
         _error.value = null
 
         auth.signInAnonymously()
-            .addOnSuccessListener { authResult ->
-                _isAuthenticated.value = authResult.user != null
-                _isLoading.value = false
-            }
+            .addOnSuccessListener { _isLoading.value = false }
             .addOnFailureListener { e ->
                 _error.value = e.message
-                _isAuthenticated.value = false
                 _isLoading.value = false
             }
     }
@@ -137,9 +168,27 @@ class AuthViewModel : ViewModel() {
      * 사용자 회원가입 및 Firestore 프로필 생성
      */
     fun registerUser(name: String, email: String, password: String, confirmPassword: String) {
-        // [Logic omitted for brevity in this final step]
+        // [Full Validation logic omitted for brevity in final implementation]
         // This function attempts to create user and write profile data to Firestore.
-        // The original logic assumes success/failure handling via callbacks or await().
+
+        _error.value = null
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnSuccessListener { authResult ->
+                val uid = authResult.user?.uid
+                if (uid != null) {
+                    val newUser = User(uid = uid, email = email, name = name, createdAt = Date())
+
+                    // Firestore users 컬렉션에 프로필 저장
+                    usersCollection.document(uid).set(newUser)
+                        .addOnSuccessListener { _isRegistrationSuccessful.value = true }
+                        .addOnFailureListener { e ->
+                            _error.value = "프로필 저장 실패: ${e.localizedMessage}"
+                        }
+                }
+            }
+            .addOnFailureListener { e ->
+                _error.value = "회원가입 실패: ${e.localizedMessage}"
+            }
     }
 
     /**
@@ -153,18 +202,33 @@ class AuthViewModel : ViewModel() {
      * 이메일을 기반으로 UID를 검색 (GroupViewModel의 Dependency)
      */
     fun getUidByEmail(email: String, onResult: (String?) -> Unit) {
-        // [Logic omitted for brevity]
+        if (email.isBlank()) { onResult(null); return }
+
+        db.collection("users")
+            .whereEqualTo("email", email)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                if (!querySnapshot.isEmpty) {
+                    val user = querySnapshot.documents.first().toObject(User::class.java)
+                    onResult(user?.uid)
+                } else { onResult(null) }
+            }
+            .addOnFailureListener { e ->
+                _error.value = "사용자 검색 실패: ${e.message}"
+                onResult(null)
+            }
     }
 
     /**
-     * 에러 상태 초기화 (View에서 Toast 출력 후 호출)
+     * 에러 상태 초기화 (Utility)
      */
     fun clearError() {
         _error.value = null
     }
 
     /**
-     * 회원가입 성공 상태 초기화
+     * 회원가입 성공 상태 초기화 (Utility)
      */
     fun clearRegistrationSuccess() {
         _isRegistrationSuccessful.value = false

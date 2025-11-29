@@ -75,10 +75,12 @@ fun FirstScreen(
             )
         }
 
-        // 🟢 시작하기 버튼 (로그아웃 상태일 때만 표시)
+        // 🟢 시작하기 버튼 (액션 제거, 시각적으로만 유지)
         if (!isAuthenticated) {
             Button(
+                // 🚨🚨 [수정 1] onClick 리스너를 onNavigateToLogin으로 복구
                 onClick = onNavigateToLogin,
+                // 🚨🚨 [수정 2] enabled = false 속성을 제거하여 버튼 색상 활성화
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
