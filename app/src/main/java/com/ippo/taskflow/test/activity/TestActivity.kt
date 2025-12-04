@@ -17,11 +17,25 @@ import androidx.navigation.compose.rememberNavController
 import com.ippo.taskflow.ui.theme.TaskFlowTheme
 import com.ippo.taskflow.auth.AuthViewModel
 import com.ippo.taskflow.group.GroupViewModel
-import com.ippo.taskflow.task.TaskViewModel
 import com.ippo.taskflow.screen.auth.LoginScreen
 import com.ippo.taskflow.screen.auth.RegisterScreen
+import com.ippo.taskflow.task.TaskViewModel
+import com.ippo.taskflow.test.screen.ProfileScreen
+import com.ippo.taskflow.test.screen.ProfileSettingScreen
 import com.ippo.taskflow.test.screen.TestCRUDScreen
-import com.ippo.taskflow.utils.ViewModelFactory // 🚨 Custom Factory Import
+import com.ippo.taskflow.utils.ViewModelFactory
+
+// =========================================================================
+// 0. NavHost Route 상수 정의 (가독성 향상)
+// =========================================================================
+
+private object TestRoutes {
+    const val LOGIN = "login"
+    const val REGISTER = "register"
+    const val CRUD_TEST = "crud_test"
+    const val PROFILE = "profile"
+    const val PROFILE_SETTING = "profile_setting"
+}
 
 // 1. 🧪 TestActivity: Single Activity Host
 class TestActivity : ComponentActivity() {
@@ -44,57 +58,87 @@ class TestActivity : ComponentActivity() {
 fun TestAppHost() {
     val navController = rememberNavController()
 
-    // 🚨 1. TaskViewModel, AuthViewModel 생성 (표준 팩토리 사용)
-    val taskViewModel: TaskViewModel = viewModel()
+    // 🚨 1. ViewModel 생성 영역 집중화
     val authViewModel: AuthViewModel = viewModel()
+    val taskViewModel: TaskViewModel = viewModel()
 
-    // 🚨 2. Custom Factory 생성: GroupViewModel의 의존성(Auth, Task) 주입을 위해 사용
+    // Custom Factory를 사용해 GroupViewModel 생성 (의존성 주입)
+    // ViewModelFactory는 이 파일에 포함되어 있지 않으므로 import에 의존
     val groupViewModelFactory = remember { ViewModelFactory(authViewModel, taskViewModel) }
-
-    // 3. GroupViewModel은 Custom Factory를 통해 생성
     val groupViewModel: GroupViewModel = viewModel(factory = groupViewModelFactory)
 
-    // 4. NavHost 설정
+    // 2. NavHost 설정
     NavHost(
         navController = navController,
-        startDestination = "login" // 초기 화면은 로그인 테스트
+        startDestination = TestRoutes.LOGIN
     ) {
 
-        // --- 1. Login Screen ---
-        composable("login") {
+        // --- 1. Authentication Screens ---
+
+        composable(TestRoutes.LOGIN) {
             LoginScreen(
                 authViewModel = authViewModel,
-                onNavigateToMain = { navController.navigate("crud_test") },
-                onNavigateToRegister = { navController.navigate("register") }
+                onNavigateToMain = {
+                    navController.navigate(TestRoutes.CRUD_TEST) {
+                        popUpTo(TestRoutes.LOGIN) { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = { navController.navigate(TestRoutes.REGISTER) }
             )
         }
 
-        // --- 2. Register Screen ---
-        composable("register") {
+        composable(TestRoutes.REGISTER) {
             RegisterScreen(
                 authViewModel = authViewModel,
                 onNavigateToLogin = {
                     // 회원가입 성공 시 LoginScreen으로 복귀하며, RegisterScreen을 백스택에서 제거
-                    navController.navigate("login") {
-                        popUpTo("register") { inclusive = true }
+                    navController.navigate(TestRoutes.LOGIN) {
+                        popUpTo(TestRoutes.REGISTER) { inclusive = true }
                     }
                 }
             )
         }
 
-        // --- 3. CRUD Test Screen ---
-        composable("crud_test") {
+        // --- 2. Test & Functional Screens ---
+
+        composable(TestRoutes.CRUD_TEST) {
             TestCRUDScreen(
                 groupViewModel = groupViewModel,
                 taskViewModel = taskViewModel,
-                // 로그아웃 시 세션 종료 후 로그인 화면으로 이동
                 onLogout = {
-                    authViewModel.signOut() // Firebase 세션 종료
-                    // 로그인 화면으로 이동하며, CRUD 화면을 백스택에서 제거합니다.
-                    navController.navigate("login") {
-                        popUpTo("login") { inclusive = true }
+                    authViewModel.signOut()
+                    navController.navigate(TestRoutes.LOGIN) {
+                        popUpTo(TestRoutes.LOGIN) { inclusive = true }
                     }
+                },
+                // ⭐️ 수정: Profile 화면으로 이동하는 콜백으로 변경 ⭐️
+                onNavigateToProfile = {
+                    navController.navigate(TestRoutes.PROFILE) // PROFILE 경로로 이동
                 }
+            )
+        }
+
+        // ⭐️ 3. Profile Screen ⭐️
+        composable(TestRoutes.PROFILE) {
+            ProfileScreen(
+                authViewModel = authViewModel,
+                // ProfileScreen 내부에서 Settings 버튼 클릭 시 Setting 화면으로 이동
+                onNavigateToSettings = { navController.navigate(TestRoutes.PROFILE_SETTING) },
+                onLogout = {
+                    authViewModel.signOut()
+                    navController.navigate(TestRoutes.LOGIN) {
+                        popUpTo(TestRoutes.LOGIN) { inclusive = true }
+                    }
+                },
+                onNavigateUp = { navController.popBackStack() }
+            )
+        }
+
+        // ⭐️ 4. Profile Setting Screen ⭐️
+        composable(TestRoutes.PROFILE_SETTING) {
+            ProfileSettingScreen(
+                authViewModel = authViewModel,
+                onNavigateUp = { navController.popBackStack() }
             )
         }
     }
