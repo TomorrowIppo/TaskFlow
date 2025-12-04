@@ -18,11 +18,14 @@ data class Task(
     val title: String = "",
     val description: String = "",
 
-    // 상태: "TODO", "IN_PROGRESS", "DONE"
-    val status: String = "TODO",
+    // 상태: "TODO", "IN_PROGRESS", "DONE", "BLOCKED" (BLOCKED 추가를 위해 String 유지)
+    val status: String = "IN_PROGRESS",
 
     // 우선순위: 1(높음) ~ 3(낮음)
     val priority: Int = 3,
+
+    // ✅ 명세 반영: 이 Task가 의존하는 선행 Task의 ID (BLOCKED 상태와 관련됨)
+    val precursorTaskId: String? = null,
 
     // 태스크가 할당된 사용자의 UID
     val assignedToUid: String = "",

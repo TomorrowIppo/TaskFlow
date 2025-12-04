@@ -1,12 +1,13 @@
 package com.ippo.taskflow.test.screen
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,23 +18,25 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.ippo.taskflow.group.GroupViewModel
 import com.ippo.taskflow.task.TaskViewModel
-import com.ippo.taskflow.data.Task // 🚨 Data Class Import
-import com.ippo.taskflow.data.Group // 🚨 Data Class Import
-import java.util.Date // Date Import
+import com.ippo.taskflow.data.Task
+import com.ippo.taskflow.data.Group
+import java.util.Date
 
-// 🚨 PM Note: 주 색상 상수 정의
+// PM Note: 주 색상 상수 정의
 val TaskFlowGreen = Color(0xFF1E8A3B)
-
 
 // =========================================================================
 // 1. 메인 테스트 호스트 컴포저블 (Main Host Composable)
 // =========================================================================
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TestCRUDScreen(
     groupViewModel: GroupViewModel,
     taskViewModel: TaskViewModel,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    // ⭐️ 수정: ProfileScreen으로 이동하는 콜백으로 변경 ⭐️
+    onNavigateToProfile: () -> Unit
 ) {
     // 1. ViewModel 상태 관찰
     val groups by groupViewModel.groupList.collectAsState()
@@ -56,52 +59,65 @@ fun TestCRUDScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // 🚨🚨 [수정] 제목과 로그아웃 버튼을 수직으로 배치하여 충돌 방지
-        Text("Task/Group CRUD 테스트 화면", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Task/Group CRUD 테스트 화면") },
+                actions = {
+                    // ⭐️ 수정: onNavigateToProfile 콜백 호출 ⭐️
+                    IconButton(onClick = onNavigateToProfile) {
+                        Icon(Icons.Filled.Settings, contentDescription = "프로필 화면으로 이동")
+                    }
 
-        Button(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 8.dp), // 너비 조정
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF424242)),
-            contentPadding = PaddingValues(vertical = 4.dp)
+                    // 기존 로그아웃 버튼
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "로그아웃")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("로그아웃 (세션 종료)", style = MaterialTheme.typography.bodyMedium)
-        }
+            // Group 테스트 섹션 - 남은 공간의 40%
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.4f)
+                    .padding(top = 8.dp)
+            ) {
+                GroupTestSection(
+                    groups = groups,
+                    isLoading = groupIsLoading,
+                    error = groupError,
+                    groupViewModel = groupViewModel,
+                    taskViewModel = taskViewModel
+                )
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Group 테스트 섹션
-        Card(modifier = Modifier.fillMaxWidth().heightIn(min = 350.dp, max = 350.dp)) {
-            GroupTestSection(
-                groups = groups,
-                isLoading = groupIsLoading,
-                error = groupError,
-                groupViewModel = groupViewModel,
-                taskViewModel = taskViewModel // TaskViewModel 전달
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Task 테스트 섹션
-        Card(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
-            TaskTestSection(
-                groups = groups,
-                selectedGroupId = selectedGroupId,
-                onGroupSelected = { newId ->
-                    selectedGroupId = newId
-                },
-                tasks = tasks,
-                isLoading = taskIsLoading,
-                error = taskError,
-                taskViewModel = taskViewModel
-            )
+            // Task 테스트 섹션 - 남은 공간의 60%
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.6f)
+            ) {
+                TaskTestSection(
+                    groups = groups,
+                    selectedGroupId = selectedGroupId,
+                    onGroupSelected = { newId -> selectedGroupId = newId },
+                    tasks = tasks,
+                    isLoading = taskIsLoading,
+                    error = taskError,
+                    taskViewModel = taskViewModel
+                )
+            }
         }
     }
 }
@@ -109,6 +125,7 @@ fun TestCRUDScreen(
 
 // =========================================================================
 // 2. GroupTestSection (그룹 CRUD 및 멤버 관리)
+// (이하 GroupTestSection, TaskTestSection, Supporting Composables 코드는 변경 없음)
 // =========================================================================
 
 @Composable
@@ -117,54 +134,57 @@ fun GroupTestSection(
     isLoading: Boolean,
     error: String?,
     groupViewModel: GroupViewModel,
-    taskViewModel: TaskViewModel // TaskViewModel 추가
+    taskViewModel: TaskViewModel
 ) {
     val testMemberId = "DEV_MEMBER_B456"
+    val firstGroup = groups.firstOrNull()
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("그룹 관리 (Group CRUD + 멤버)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("그룹 관리", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 
-        if (isLoading) { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-        else if (error != null) { Text("에러: $error", color = MaterialTheme.colorScheme.error) }
-        else { Text("로드된 그룹 수: ${groups.size}", style = MaterialTheme.typography.bodyMedium) }
+        LoadingAndErrorDisplay(
+            isLoading = isLoading,
+            error = error,
+            successMessage = "로드된 그룹 수: ${groups.size}"
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         // 그룹 생성/로드 버튼
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+        TestButtonsRow {
             Button(onClick = {
                 groupViewModel.createGroup(
                     name = "Test Group ${System.currentTimeMillis() % 1000}",
                     description = "삭제 테스트용 그룹"
                 )
-            }, enabled = !isLoading) {
+            }, enabled = !isLoading, modifier = Modifier.weight(1f)) {
                 Text("생성")
             }
-            Button(onClick = {
-                groupViewModel.loadGroups()
-            }, enabled = !isLoading) {
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = { groupViewModel.loadGroups() }, enabled = !isLoading, modifier = Modifier.weight(1f)) {
                 Text("로드")
             }
         }
 
         // 멤버 추가/삭제 테스트
-        val firstGroup = groups.firstOrNull()
         if (firstGroup != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Button(onClick = {
-                    groupViewModel.addMember(firstGroup.groupId, testMemberId)
-                }, enabled = !isLoading, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64B5F6))) {
+            Spacer(modifier = Modifier.height(8.dp))
+            TestButtonsRow {
+                Button(
+                    onClick = { groupViewModel.addMember(firstGroup.groupId, testMemberId) },
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64B5F6)),
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("멤버 추가")
                 }
-                Button(onClick = {
-                    groupViewModel.deleteMember(firstGroup.groupId, testMemberId)
-                }, enabled = !isLoading, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE57373))) {
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = { groupViewModel.deleteMember(firstGroup.groupId, testMemberId) },
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE57373)),
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("멤버 삭제")
                 }
             }
@@ -180,15 +200,14 @@ fun GroupTestSection(
                         groupName = group.name,
                         groupId = group.groupId,
                         onDeleteClicked = {
-                            // 🚨 그룹 삭제 시 Task 자동 삭제 (Cascading Delete)
-                            taskViewModel.deleteAllTasksInGroup(group.groupId)
+                            taskViewModel.deleteAllTasksInGroup(group.groupId) // Cascading Delete
                             groupViewModel.deleteGroup(group.groupId)
                         }
                     )
                 }
             }
         } else if (!isLoading && error == null) {
-            Text("로드된 그룹이 없습니다.", modifier = Modifier.padding(top = 8.dp))
+            Text("로드된 그룹이 없습니다.", modifier = Modifier.padding(top = 8.dp), color = Color.Gray)
         }
     }
 }
@@ -207,7 +226,7 @@ fun TaskTestSection(
     error: String?,
     taskViewModel: TaskViewModel
 ) {
-    // 🚨 [핵심 유지] 선택된 그룹 ID가 바뀔 때 Task 로드를 자동으로 트리거
+    // 핵심: 선택된 그룹 ID가 바뀔 때 Task 로드를 자동으로 트리거
     LaunchedEffect(selectedGroupId) {
         if (selectedGroupId != null) {
             taskViewModel.loadTasks(selectedGroupId)
@@ -217,17 +236,22 @@ fun TaskTestSection(
     val selectedGroup = groups.find { it.groupId == selectedGroupId }
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("작업 관리 (Task CRUD)", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("작업 관리", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
 
-        if (isLoading) { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-        else if (error != null) { Text("에러: $error", color = MaterialTheme.colorScheme.error) }
-        else { Text("로드된 작업 수: ${tasks.size}", style = MaterialTheme.typography.bodyMedium) }
+        LoadingAndErrorDisplay(
+            isLoading = isLoading,
+            error = error,
+            successMessage = "로드된 작업 수: ${tasks.size}"
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         if (groups.isEmpty()) {
-            Text("Task를 테스트하려면 Group을 먼저 **생성 및 로드**해야 합니다.", color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Task를 테스트하려면 Group을 먼저 **생성 및 로드**해야 합니다.",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
             return
         }
 
@@ -239,7 +263,7 @@ fun TaskTestSection(
         ) {
             selectedGroup?.let {
                 Text(
-                    "현재 그룹: ${it.name} (ID: ${it.groupId.take(4)}..)",
+                    "그룹: ${it.name} (ID: ${it.groupId.take(4)}..)",
                     style = MaterialTheme.typography.titleMedium.copy(color = TaskFlowGreen),
                     modifier = Modifier.weight(1f)
                 )
@@ -251,7 +275,7 @@ fun TaskTestSection(
                     val currentIndex = groups.indexOfFirst { it.groupId == selectedGroupId }
                     if (currentIndex != -1) {
                         val nextIndex = (currentIndex + 1) % groups.size
-                        onGroupSelected(groups[nextIndex].groupId) // 다음 그룹으로 업데이트
+                        onGroupSelected(groups[nextIndex].groupId)
                     }
                 },
                 enabled = groups.size > 1 && !isLoading
@@ -261,12 +285,12 @@ fun TaskTestSection(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🚀 Task 생성 버튼 (전체 너비 사용)
+        // 🚀 Task 생성 버튼
         Button(
             onClick = {
-                if (selectedGroupId != null) {
+                selectedGroupId?.let { groupId ->
                     taskViewModel.createTask(
-                        groupId = selectedGroupId,
+                        groupId = groupId,
                         title = "New Task ${tasks.size + 1}",
                         assignedToUid = "DEV_TEST_USER",
                         dueDate = Date(),
@@ -283,7 +307,7 @@ fun TaskTestSection(
 
         Divider(Modifier.padding(vertical = 8.dp))
 
-        // Task 목록 (R/U/D 테스트)
+        // Task 목록
         if (tasks.isNotEmpty()) {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(tasks, key = { it.taskId }) { task ->
@@ -300,14 +324,14 @@ fun TaskTestSection(
                 }
             }
         } else if (!isLoading && error == null) {
-            Text("로드된 작업이 없습니다. 위에 생성 버튼을 눌러보세요.", modifier = Modifier.padding(top = 8.dp))
+            Text("로드된 작업이 없습니다.", modifier = Modifier.padding(top = 8.dp), color = Color.Gray)
         }
     }
 }
 
-// ----------------------------------------------------
-// 4. SUPPORTING LIST ITEMS
-// ----------------------------------------------------
+// =========================================================================
+// 4. SUPPORTING COMPOSABLES (재사용 가능한 UI 요소)
+// =========================================================================
 
 @Composable
 fun GroupListItem(groupName: String, groupId: String, onDeleteClicked: () -> Unit) {
@@ -319,16 +343,16 @@ fun GroupListItem(groupName: String, groupId: String, onDeleteClicked: () -> Uni
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(groupName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(groupName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("ID: ${groupId.take(8)}...", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         }
 
         // 🗑️ 삭제 버튼
-        Button(
+        IconButton(
             onClick = onDeleteClicked,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            colors = IconButtonDefaults.iconButtonColors(contentColor = Color.Red)
         ) {
-            Text("삭제")
+            Icon(imageVector = Icons.Filled.Delete, contentDescription = "그룹 삭제")
         }
     }
     Divider()
@@ -349,7 +373,7 @@ fun TaskListItem(task: Task, onToggleComplete: (Boolean) -> Unit, onDeleteClicke
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Checkbox(
                 checked = isCompleted,
-                onCheckedChange = onToggleComplete, // (Boolean) -> Unit 타입 일치
+                onCheckedChange = onToggleComplete,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(Modifier.width(8.dp))
@@ -363,8 +387,28 @@ fun TaskListItem(task: Task, onToggleComplete: (Boolean) -> Unit, onDeleteClicke
 
         // D: Delete (삭제 버튼)
         IconButton(onClick = onDeleteClicked, modifier = Modifier.size(36.dp)) {
-            Icon(imageVector = Icons.Filled.Delete, contentDescription = "삭제", tint = Color.Red)
+            Icon(imageVector = Icons.Filled.Delete, contentDescription = "작업 삭제", tint = Color.Red)
         }
     }
     Divider()
+}
+
+@Composable
+fun LoadingAndErrorDisplay(isLoading: Boolean, error: String?, successMessage: String) {
+    if (isLoading) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+    } else if (error != null) {
+        Text("에러: $error", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+    } else {
+        Text(successMessage, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+    }
+}
+
+@Composable
+fun TestButtonsRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        content = content
+    )
 }

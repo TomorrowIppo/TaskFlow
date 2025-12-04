@@ -63,6 +63,10 @@ class AuthViewModel : ViewModel() {
     private val _isRegistrationSuccessful = MutableStateFlow(false)
     val isRegistrationSuccessful: StateFlow<Boolean> = _isRegistrationSuccessful
 
+    // ✅ 프로필 업데이트 상태
+    private val _isProfileUpdating = MutableStateFlow(false)
+    val isProfileUpdating: StateFlow<Boolean> = _isProfileUpdating
+
     val userId: String?
         get() = auth.currentUser?.uid
 
@@ -119,11 +123,11 @@ class AuthViewModel : ViewModel() {
 
 
     // ---------------------------------------------------------------------
-    // 3. PUBLIC ACTION FUNCTIONS
+    // 3. AUTHENTICATION ACTIONS
     // ---------------------------------------------------------------------
 
     /**
-     * 🚨 [핵심] Email/PW 로그인 및 익명 로그인 폴백 통합
+     * Email/PW 로그인 및 익명 로그인 폴백 통합
      */
     fun signIn(email: String, password: String) {
         _emailError.value = null
@@ -165,18 +169,16 @@ class AuthViewModel : ViewModel() {
     }
 
     /**
-     * 사용자 회원가입 및 Firestore 프로필 생성
+     * 사용자 회원가입 및 Firestore 프로필 생성 (statusMsg 초기값 반영)
      */
     fun registerUser(name: String, email: String, password: String, confirmPassword: String) {
-        // [Full Validation logic omitted for brevity in final implementation]
-        // This function attempts to create user and write profile data to Firestore.
-
+        // [Validation logic omitted]
         _error.value = null
         auth.createUserWithEmailAndPassword(email, password)
             .addOnSuccessListener { authResult ->
                 val uid = authResult.user?.uid
                 if (uid != null) {
-                    val newUser = User(uid = uid, email = email, name = name, createdAt = Date())
+                    val newUser = User(uid = uid, email = email, name = name, statusMsg = null, createdAt = Date())
 
                     // Firestore users 컬렉션에 프로필 저장
                     usersCollection.document(uid).set(newUser)
@@ -197,6 +199,55 @@ class AuthViewModel : ViewModel() {
     fun signOut() {
         auth.signOut()
     }
+
+    // ---------------------------------------------------------------------
+    // 4. PROFILE MANAGEMENT ACTIONS
+    // ---------------------------------------------------------------------
+
+    /**
+     * [리팩토링 통합] 사용자의 이름(name)과 상태 메시지(statusMsg)를 동시에 업데이트합니다.
+     */
+    fun updateProfile(name: String, statusMessage: String) {
+        val uid = userId ?: run {
+            _error.value = "로그인이 필요합니다."
+            return
+        }
+
+        // 기본적인 유효성 검사
+        if (name.isBlank()) {
+            _error.value = "사용자 이름은 공백일 수 없습니다."
+            return
+        }
+        if (statusMessage.length > 100) {
+            _error.value = "상태 메시지는 100자를 초과할 수 없습니다."
+            return
+        }
+
+        _isProfileUpdating.value = true
+        _error.value = null
+
+        // 업데이트할 필드를 Map으로 정의합니다.
+        val updates = mapOf(
+            "name" to name,
+            "statusMsg" to statusMessage
+        )
+
+        usersCollection.document(uid).update(updates)
+            .addOnSuccessListener {
+                // 로컬 ViewModel 상태(profile)를 업데이트하여 UI에 즉시 반영되도록 합니다.
+                _profile.value = _profile.value?.copy(name = name, statusMsg = statusMessage)
+                _isProfileUpdating.value = false
+            }
+            .addOnFailureListener { e ->
+                _error.value = "프로필 업데이트 실패: ${e.message}"
+                _isProfileUpdating.value = false
+            }
+    }
+
+
+    // ---------------------------------------------------------------------
+    // 5. UTILITY FUNCTIONS
+    // ---------------------------------------------------------------------
 
     /**
      * 이메일을 기반으로 UID를 검색 (GroupViewModel의 Dependency)
