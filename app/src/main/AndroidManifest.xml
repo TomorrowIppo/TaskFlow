@@ -14,12 +14,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TaskFlow">
         <activity
-            android:name=".test.activity.TestActivity"
+            android:name=".activity.MainActivity"
             android:exported="false"
             android:label="@string/title_activity_test"
             android:theme="@style/Theme.TaskFlow" />
         <activity
-            android:name=".activity.MainActivity"
+            android:name=".test.activity.TestActivity"
             android:exported="true"
             android:label="@string/title_activity_first"
             android:theme="@style/Theme.TaskFlow">
