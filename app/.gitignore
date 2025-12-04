@@ -1,0 +1,5 @@
+/build
+
+# Firebase/Google Services 설정 파일 제외
+# 이 파일에는 민감한 API 키와 클라이언트 정보가 포함되어 있습니다.
+google-services.json

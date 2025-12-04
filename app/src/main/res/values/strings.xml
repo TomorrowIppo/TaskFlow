@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">TaskFlow</string>
+    <string name="title_activity_first">FirstActivity</string>
+    <string name="title_activity_firestore_test">FirestoreTestActivity</string>
+    <string name="title_activity_group_test">GroupTestActivity</string>
+    <string name="title_activity_test">TestActivity</string>
+    <string name="title_activity_main2">MainActivity2</string>
+</resources>
