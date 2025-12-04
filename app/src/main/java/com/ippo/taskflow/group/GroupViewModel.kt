@@ -4,17 +4,18 @@ import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.ippo.taskflow.data.Group
+import com.ippo.taskflow.data.User // User 모델 임포트
 import com.ippo.taskflow.task.TaskViewModel
-import com.ippo.taskflow.auth.AuthViewModel // 🚨 AuthViewModel Import
+import com.ippo.taskflow.auth.AuthViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Date
 
-// 🚨 GroupViewModel은 AuthViewModel과 TaskViewModel을 모두 인자로 받습니다.
 class GroupViewModel(
-    private val authViewModel: AuthViewModel, // AuthViewModel 주입 (UID 검색용)
-    private val taskViewModel: TaskViewModel  // TaskViewModel 주입 (Task 삭제용)
+    private val authViewModel: AuthViewModel,
+    private val taskViewModel: TaskViewModel
 ) : ViewModel() {
 
     private val db = FirebaseFirestore.getInstance()
@@ -23,14 +24,31 @@ class GroupViewModel(
     private val _groupList = MutableStateFlow<List<Group>>(emptyList())
     val groupList: StateFlow<List<Group>> = _groupList
 
+    // ✅ 추가: 현재 선택된 그룹의 상세 정보
+    private val _currentGroup = MutableStateFlow<Group?>(null)
+    val currentGroup: StateFlow<Group?> = _currentGroup
+
+    // ✅ 추가: 현재 그룹의 멤버 프로필 목록
+    private val _currentGroupMembers = MutableStateFlow<List<User>>(emptyList())
+    val currentGroupMembers: StateFlow<List<User>> = _currentGroupMembers
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private var groupDetailListener: ListenerRegistration? = null
+    private var groupMembersListener: ListenerRegistration? = null
+
     private val currentUserId: String?
         get() = auth.currentUser?.uid
+
+    override fun onCleared() {
+        super.onCleared()
+        groupDetailListener?.remove()
+        groupMembersListener?.remove()
+    }
 
     /**
      * 현재 사용자가 멤버로 포함된 그룹 목록을 실시간으로 불러옵니다.
@@ -51,10 +69,60 @@ class GroupViewModel(
 
                 if (snapshot != null) {
                     val groups = snapshot.documents.mapNotNull { document ->
+                        // DocumentId를 수동으로 설정하여 Group 객체 생성
                         document.toObject(Group::class.java)?.copy(groupId = document.id)
                     }
                     _groupList.value = groups
                 }
+            }
+    }
+
+    /**
+     * ✅ 추가: 단일 그룹의 상세 정보를 실시간으로 로드합니다.
+     */
+    fun loadGroupDetail(groupId: String) {
+        groupDetailListener?.remove()
+        if (groupId.isBlank()) return
+
+        groupDetailListener = db.collection("groups").document(groupId)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    _error.value = "그룹 상세 정보 로드 실패: ${e.message}"
+                    _currentGroup.value = null
+                    return@addSnapshotListener
+                }
+
+                val group = snapshot?.toObject(Group::class.java)?.copy(groupId = snapshot.id)
+                _currentGroup.value = group
+
+                // 그룹 정보가 로드되면 멤버 정보도 로드 시작
+                if (group != null) {
+                    loadGroupMembers(group.memberUids)
+                } else {
+                    _currentGroupMembers.value = emptyList()
+                }
+            }
+    }
+
+    /**
+     * ✅ 추가: 그룹 멤버들의 프로필 정보를 로드합니다.
+     */
+    private fun loadGroupMembers(memberUids: List<String>) {
+        groupMembersListener?.remove()
+        if (memberUids.isEmpty()) {
+            _currentGroupMembers.value = emptyList()
+            return
+        }
+
+        // Firestore in 쿼리는 최대 10개 제한이 있으므로, 더 복잡한 로직이 필요할 수 있으나,
+        // 여기서는 최대 10명 이내로 가정하고 in 쿼리를 사용합니다.
+        groupMembersListener = db.collection("users")
+            .whereIn("uid", memberUids)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null || snapshot == null) return@addSnapshotListener
+
+                val members = snapshot.toObjects(User::class.java)
+                _currentGroupMembers.value = members
             }
     }
 
@@ -156,6 +224,7 @@ class GroupViewModel(
             return
         }
 
+        // 💡 isLoading은 inviteMemberByEmail 또는 deleteMember에서 설정되므로 여기서 다시 설정할 필요는 없습니다.
         db.collection("groups").document(groupId)
             .update("memberUids", FieldValue.arrayUnion(memberId))
             .addOnSuccessListener {
@@ -175,6 +244,9 @@ class GroupViewModel(
             _error.value = "그룹 ID 또는 멤버 ID가 유효하지 않습니다."
             return
         }
+
+        _isLoading.value = true
+        _error.value = null
 
         db.collection("groups").document(groupId)
             .update("memberUids", FieldValue.arrayRemove(memberId))

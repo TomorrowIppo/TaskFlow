@@ -72,7 +72,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
 
     //implementation(libs.firebase.auth.ktx)
-
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     // Testing Dependencies
     testImplementation(libs.junit)
