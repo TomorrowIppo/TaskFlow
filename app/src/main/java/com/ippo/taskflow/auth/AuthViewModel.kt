@@ -63,7 +63,7 @@ class AuthViewModel : ViewModel() {
     private val _isRegistrationSuccessful = MutableStateFlow(false)
     val isRegistrationSuccessful: StateFlow<Boolean> = _isRegistrationSuccessful
 
-    // ✅ 추가: 프로필 업데이트 상태
+    // ✅ 프로필 업데이트 상태
     private val _isProfileUpdating = MutableStateFlow(false)
     val isProfileUpdating: StateFlow<Boolean> = _isProfileUpdating
 
@@ -127,7 +127,7 @@ class AuthViewModel : ViewModel() {
     // ---------------------------------------------------------------------
 
     /**
-     * 🚨 [핵심] Email/PW 로그인 및 익명 로그인 폴백 통합
+     * Email/PW 로그인 및 익명 로그인 폴백 통합
      */
     fun signIn(email: String, password: String) {
         _emailError.value = null
@@ -172,7 +172,7 @@ class AuthViewModel : ViewModel() {
      * 사용자 회원가입 및 Firestore 프로필 생성 (statusMsg 초기값 반영)
      */
     fun registerUser(name: String, email: String, password: String, confirmPassword: String) {
-        // [Full Validation logic omitted for brevity in final implementation]
+        // [Validation logic omitted]
         _error.value = null
         auth.createUserWithEmailAndPassword(email, password)
             .addOnSuccessListener { authResult ->
@@ -201,19 +201,24 @@ class AuthViewModel : ViewModel() {
     }
 
     // ---------------------------------------------------------------------
-    // 4. PROFILE MANAGEMENT ACTIONS (추가된 섹션)
+    // 4. PROFILE MANAGEMENT ACTIONS
     // ---------------------------------------------------------------------
 
     /**
-     * 사용자의 상태 메시지를 업데이트합니다.
+     * [리팩토링 통합] 사용자의 이름(name)과 상태 메시지(statusMsg)를 동시에 업데이트합니다.
      */
-    fun updateStatusMessage(message: String) {
+    fun updateProfile(name: String, statusMessage: String) {
         val uid = userId ?: run {
             _error.value = "로그인이 필요합니다."
             return
         }
 
-        if (message.length > 100) {
+        // 기본적인 유효성 검사
+        if (name.isBlank()) {
+            _error.value = "사용자 이름은 공백일 수 없습니다."
+            return
+        }
+        if (statusMessage.length > 100) {
             _error.value = "상태 메시지는 100자를 초과할 수 없습니다."
             return
         }
@@ -221,45 +226,20 @@ class AuthViewModel : ViewModel() {
         _isProfileUpdating.value = true
         _error.value = null
 
-        val updates = mapOf("statusMsg" to message)
+        // 업데이트할 필드를 Map으로 정의합니다.
+        val updates = mapOf(
+            "name" to name,
+            "statusMsg" to statusMessage
+        )
 
         usersCollection.document(uid).update(updates)
             .addOnSuccessListener {
-                _profile.value = _profile.value?.copy(statusMsg = message)
+                // 로컬 ViewModel 상태(profile)를 업데이트하여 UI에 즉시 반영되도록 합니다.
+                _profile.value = _profile.value?.copy(name = name, statusMsg = statusMessage)
                 _isProfileUpdating.value = false
             }
             .addOnFailureListener { e ->
-                _error.value = "상태 메시지 업데이트 실패: ${e.message}"
-                _isProfileUpdating.value = false
-            }
-    }
-
-    /**
-     * 사용자의 이름(name)을 업데이트합니다.
-     */
-    fun updateUserName(name: String) {
-        val uid = userId ?: run {
-            _error.value = "로그인이 필요합니다."
-            return
-        }
-
-        if (name.isBlank()) {
-            _error.value = "이름은 공백일 수 없습니다."
-            return
-        }
-
-        _isProfileUpdating.value = true
-        _error.value = null
-
-        val updates = mapOf("name" to name)
-
-        usersCollection.document(uid).update(updates)
-            .addOnSuccessListener {
-                _profile.value = _profile.value?.copy(name = name)
-                _isProfileUpdating.value = false
-            }
-            .addOnFailureListener { e ->
-                _error.value = "이름 업데이트 실패: ${e.message}"
+                _error.value = "프로필 업데이트 실패: ${e.message}"
                 _isProfileUpdating.value = false
             }
     }
