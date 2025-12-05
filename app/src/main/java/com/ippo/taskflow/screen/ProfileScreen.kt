@@ -10,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.* // remember, collectAsState, LaunchedEffect Import
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,34 +22,54 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.R // R 파일 경로는 프로젝트 설정에 따라 달라질 수 있습니다.
-import com.ippo.taskflow.auth.AuthViewModel // ViewModel이 필요하다면 Import
-import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme // 테마 Import
+import com.ippo.taskflow.R
+import com.ippo.taskflow.auth.AuthViewModel // AuthViewModel Import
+import com.ippo.taskflow.data.User // User 데이터 모델 Import
+import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme
 
-// 임시 아이콘 사용을 위한 Import (실제 프로젝트 아이콘으로 교체 필요)
+// 임시 아이콘 Import (실제 프로젝트 아이콘으로 교체 필요)
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Person
 
 /**
  * 프로필 화면 컴포저블.
- * @param authViewModel 사용자 인증 상태 관리를 위한 ViewModel (필요시)
+ * AuthViewModel을 통해 사용자 데이터를 로드하고 편집 액션을 연결합니다.
+ * @param authViewModel 사용자 인증 상태 관리를 위한 ViewModel
  * @param onNavigateToSettings 프로필 편집 버튼 클릭 시 호출될 액션
+ * @param onNavigateBack 뒤로가기 버튼 클릭 시 호출될 액션
  */
 @Composable
 fun ProfileScreen(
-    // ViewModel은 현재 화면 디자인에 직접적인 상태 관리가 없으므로 주석 처리하거나 필요에 따라 사용
-    // authViewModel: AuthViewModel,
-    onNavigateToSettings: () -> Unit = {} // 프로필 편집 버튼 액션
+    authViewModel: AuthViewModel, // ✅ ViewModel 주입
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateBack: () -> Unit = {} // ✅ 뒤로가기 액션 추가
 ) {
+    // 1. ViewModel의 StateFlow를 관찰하여 Composable State로 변환
+    val userProfile by authViewModel.profile.collectAsState()
+    val isLoading by authViewModel.isLoading.collectAsState()
+
+    // 2. 에러 메시지 처리를 위한 LaunchedEffect (옵션)
+    val error by authViewModel.error.collectAsState()
+    LaunchedEffect(error) {
+        if (error != null) {
+            // Snackbar 등을 통해 사용자에게 에러를 보여줄 수 있습니다.
+            // 예시: Log.e("ProfileScreen", "Error: $error")
+            authViewModel.clearError() // 에러를 본 후 초기화
+        }
+    }
+
+
     Scaffold(
-        topBar = { ProfileTopBar() },
+        topBar = { ProfileTopBar(onNavigateBack = onNavigateBack) }, // ✅ 뒤로가기 액션 전달
         bottomBar = { ProfileBottomBar() },
         modifier = Modifier.fillMaxSize()
     ) { paddingValues ->
         ProfileContent(
             modifier = Modifier.padding(paddingValues),
-            onEditProfileClick = onNavigateToSettings
+            userProfile = userProfile, // ✅ 동적 사용자 데이터 전달
+            onEditProfileClick = onNavigateToSettings,
+            isLoading = isLoading
         )
     }
 }
@@ -59,15 +79,15 @@ fun ProfileScreen(
 // -------------------------------------------------------------
 
 @Composable
-fun ProfileTopBar() {
+fun ProfileTopBar(onNavigateBack: () -> Unit) { // ✅ onNavigateBack 인자 추가
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 뒤로가기 버튼
-        IconButton(onClick = { /* 뒤로가기 액션 */ }) {
+        // 뒤로가기 버튼 액션 연결
+        IconButton(onClick = onNavigateBack) { // ✅ 액션 연결
             Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
         }
         Spacer(modifier = Modifier.width(8.dp))
@@ -78,17 +98,14 @@ fun ProfileTopBar() {
             fontWeight = FontWeight.SemiBold
         )
     }
-    // 구분선 (옵션)
-    // Divider(color = Color.LightGray.copy(alpha = 0.5f))
 }
 
 // -------------------------------------------------------------
-// 하단 내비게이션 바 (3개 버튼)
+// 하단 내비게이션 바 (변경 없음)
 // -------------------------------------------------------------
-
 @Composable
 fun ProfileBottomBar() {
-    // 배경색: 디자인에 따라 연한 녹색/흰색으로 설정
+    // ... (기존 코드 유지)
     val barColor = Color(0xFFC8E6C9) // 예시 연한 녹색 (Material Color: Light Green 200)
 
     Row(
@@ -108,9 +125,9 @@ fun ProfileBottomBar() {
 
 @Composable
 fun BottomNavItem(icon: ImageVector, label: String, onClick: () -> Unit, isSelected: Boolean = false) {
+    // ... (기존 코드 유지)
     val tintColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
 
-    // 디자인을 최대한 유사하게 구현하기 위해 Icon과 Modifier를 사용
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
         Icon(
             imageVector = icon,
@@ -123,11 +140,31 @@ fun BottomNavItem(icon: ImageVector, label: String, onClick: () -> Unit, isSelec
 
 
 // -------------------------------------------------------------
-// 프로필 내용 영역 (스트릭 제거)
+// 프로필 내용 영역 (ViewModel 데이터 반영)
 // -------------------------------------------------------------
 
 @Composable
-fun ProfileContent(modifier: Modifier = Modifier, onEditProfileClick: () -> Unit) {
+fun ProfileContent(
+    modifier: Modifier = Modifier,
+    userProfile: User?, // ✅ 사용자 프로필 데이터
+    onEditProfileClick: () -> Unit,
+    isLoading: Boolean // ✅ 로딩 상태
+) {
+    if (isLoading && userProfile == null) {
+        // 데이터 로딩 중일 때 로딩 인디케이터 표시
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    // 사용자 이름 및 상태 메시지 설정
+    val displayName = userProfile?.name ?: "Guest User"
+    val statusMessage = userProfile?.statusMsg ?: "상태 메시지를 설정해주세요."
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -137,25 +174,27 @@ fun ProfileContent(modifier: Modifier = Modifier, onEditProfileClick: () -> Unit
         Spacer(Modifier.height(32.dp))
 
         // 1. 프로필 이미지
+        // TODO: userProfile에서 실제 프로필 이미지 URL/ID를 가져와야 합니다.
+        // 현재는 Placeholder 사용을 가정합니다.
 //        ProfileImage(
-//            imageResId = R.drawable.profile_placeholder, // R.drawable.profile_placeholder는 사용자가 직접 추가해야 합니다.
+//            imageResId = R.drawable.profile_placeholder, // R.drawable.profile_placeholder는 프로젝트에 추가해야 합니다.
 //            contentDescription = "사용자 프로필 사진"
 //        )
 
         Spacer(Modifier.height(24.dp))
 
-        // 2. 사용자 이름
+        // 2. 사용자 이름 (ViewModel 데이터 반영)
         Text(
-            text = "김연아",
+            text = displayName, // ✅ 동적 데이터
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
         )
         Spacer(Modifier.height(4.dp))
 
-        // 3. 상태 메시지
+        // 3. 상태 메시지 (ViewModel 데이터 반영)
         Text(
-            text = "안녕!",
+            text = statusMessage, // ✅ 동적 데이터
             fontSize = 16.sp,
             color = Color.Gray
         )
@@ -164,35 +203,27 @@ fun ProfileContent(modifier: Modifier = Modifier, onEditProfileClick: () -> Unit
         // 4. 프로필 편집 버튼
         EditProfileButton(onClick = onEditProfileClick)
 
-        // 스트릭(달력) 기능이 제거되므로, 아래에 공간을 추가하여 균형을 맞춥니다.
         Spacer(Modifier.height(48.dp))
-
-        // 🚨 스트릭 달력 영역 제거됨
     }
 }
 
 // -------------------------------------------------------------
-// 하위 컴포넌트
+// 하위 컴포넌트 (변경 없음)
 // -------------------------------------------------------------
 
 @Composable
 fun ProfileImage(imageResId: Int, contentDescription: String) {
-    // 테두리를 위한 Modifier
+    // ... (기존 코드 유지: 실제 이미지 리소스로 교체 필요)
     val borderModifier = Modifier
         .size(160.dp)
         .clip(CircleShape)
         .border(
             width = 3.dp,
-            color = Color.LightGray.copy(alpha = 0.5f), // 테두리 색상
+            color = Color.LightGray.copy(alpha = 0.5f),
             shape = CircleShape
         )
 
-    // 실제 이미지 (R.drawable.profile_placeholder 이미지를 프로젝트에 추가해야 합니다)
-    // 현재 R.drawable.profile_placeholder가 없으므로 임시로 Material Icon 사용을 가정합니다.
-    // **실제로는 painterResource(id = imageResId)**를 사용해야 합니다.
     Box(modifier = borderModifier) {
-        //
-        // TODO: 실제 프로젝트의 R.drawable.image_name으로 교체하세요.
         Image(
             painter = painterResource(id = imageResId),
             contentDescription = contentDescription,
@@ -204,10 +235,11 @@ fun ProfileImage(imageResId: Int, contentDescription: String) {
 
 @Composable
 fun EditProfileButton(onClick: () -> Unit) {
+    // ... (기존 코드 유지)
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp), // 둥근 모서리
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81C784)), // 연한 녹색
+        shape = RoundedCornerShape(20.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81C784)),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
     ) {
         Icon(
@@ -222,15 +254,16 @@ fun EditProfileButton(onClick: () -> Unit) {
 }
 
 // -------------------------------------------------------------
-// 프리뷰
+// 프리뷰 (ViewModel 주입을 위해 수정이 필요할 수 있으나, 현재는 제거)
 // -------------------------------------------------------------
-
+/*
 @Preview(showBackground = true)
 @Composable
 fun ProfileScreenPreview() {
-    // ⚠️ 경고: R.drawable.profile_placeholder는 Preview에서 미리 볼 수 없습니다.
-    // 해당 리소스를 프로젝트에 추가해야 에러 없이 동작합니다.
-    TaskFlowTheme {
-        ProfileScreen()
-    }
+    // ViewModel 주입이 필요 없는 더미 데이터로 Preview를 생성해야 합니다.
+    // 현재는 AuthViewModel 인스턴스가 없으므로 Preview에서 ProfileScreen을 직접 호출할 수 없습니다.
+    // TaskFlowTheme {
+    //     // ProfileScreen() // 이 부분에 오류 발생
+    // }
 }
+*/
