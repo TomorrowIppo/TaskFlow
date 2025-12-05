@@ -5,40 +5,39 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel // ViewModel 인스턴스 생성을 위한 Import
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme // 기존 테마 Import
-// 🚨 필수 MVVM/Screen Imports (경로 확인 필요)
+import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme
+// 🚨 필수 MVVM/Screen Imports
 import com.ippo.taskflow.screen.FirstScreen
+import com.ippo.taskflow.screen.LoginScreen
+import com.ippo.taskflow.screen.MainScreen
+import com.ippo.taskflow.screen.RegisterScreen
+import com.ippo.taskflow.screen.SettingScreen
 import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.task.TaskViewModel // TaskViewModel Import
 
-// 🚨 NavHost 경로 상수 정의 (MainActivity에 위치)
+// 🚨 NavHost 경로 상수 정의 (수정 없이 기존 유지)
 const val ROUTE_MAIN = "main_screen"
 const val ROUTE_LOGIN = "login_screen"
 const val ROUTE_ONBOARDING = "onboarding_screen" // FirstScreen 경로
 const val ROUTE_REGISTER = "register_screen" // 회원가입 경로
+const val ROUTE_SETTINGS = "settings_screen" // 설정 경로 (추가)
 const val ROUTE_CRUD_TEST = "crud_test_screen" // 테스트 화면 경로 (필요시)
-
-// [기존 Greeting 및 Preview 함수는 삭제하거나 다른 파일로 옮기셔야 합니다.]
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // 🚨 기존 setContent 로직을 AppNavigation으로 대체
         setContent {
             TaskFlowTheme {
-                // SAA: MainActivity가 NavHost를 호스팅합니다.
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     AppNavigation()
                 }
@@ -51,13 +50,14 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     val navController = rememberNavController()
 
-    // 💡 ViewModel 생성 (DI는 TestActivity에서 진행했으나, 여기서는 표준 생성으로 가정)
+    // 💡 ViewModel 생성
     val authViewModel: AuthViewModel = viewModel()
+    val taskViewModel: TaskViewModel = viewModel() // TaskViewModel 추가
 
     // AuthViewModel의 상태를 이용해 FirstScreen에서 바로 Main으로 분기하도록 연결
     NavHost(
         navController = navController,
-        startDestination = ROUTE_ONBOARDING // 🚨 FirstScreen을 시작점으로 설정
+        startDestination = ROUTE_ONBOARDING // FirstScreen을 시작점으로 설정
     ) {
 
         // 1. FirstScreen (Onboarding/Splash) 경로
@@ -78,18 +78,67 @@ fun AppNavigation() {
             )
         }
 
-        // 2. LoginScreen 경로 (Placeholder)
+        // 2. LoginScreen 경로
         composable(ROUTE_LOGIN) {
-            // TODO: LoginScreen Composable을 호출하여 구현
-            Text("Login Screen Placeholder", modifier = Modifier.fillMaxSize())
+            LoginScreen(
+                authViewModel = authViewModel,
+                onNavigateToMain = {
+                    navController.navigate(ROUTE_MAIN) {
+                        popUpTo(ROUTE_LOGIN) { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = {
+                    navController.navigate(ROUTE_REGISTER)
+                },
+                onNavigateBack = {
+                    navController.popBackStack() // 뒤로가기
+                }
+            )
         }
 
-        // 3. MainScreen 경로 (Placeholder)
+        // 3. RegisterScreen 경로
+        composable(ROUTE_REGISTER) {
+            RegisterScreen(
+                authViewModel = authViewModel, // 회원가입 로직은 VM에서 처리
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToLogin = {
+                    navController.navigate(ROUTE_LOGIN) {
+                        popUpTo(ROUTE_REGISTER) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // 4. MainScreen 경로
         composable(ROUTE_MAIN) {
-            // TODO: MainScreen Composable을 호출하여 구현
-            Text("Main Screen Placeholder", modifier = Modifier.fillMaxSize())
+            MainScreen(
+                authViewModel = authViewModel,
+                taskViewModel = taskViewModel,
+                onNavigateToSettings = { navController.navigate(ROUTE_SETTINGS) },
+                onNavigateToProfile = { /* TODO: Profile Screen */ },
+                onNavigateToGroups = { /* TODO: Groups Screen */ }
+            )
         }
 
-        // ... (나머지 ROUTE_REGISTER, ROUTE_CRUD_TEST 등 추가 가능)
+        // 5. SettingScreen 경로 (새로 추가)
+        composable(ROUTE_SETTINGS) {
+            SettingScreen(
+                authViewModel = authViewModel,
+                onNavigateToLogin = {
+                    navController.navigate(ROUTE_LOGIN) {
+                        // 로그아웃 시 Main, Settings 모두 백스택에서 제거
+                        popUpTo(ROUTE_MAIN) { inclusive = true }
+                    }
+                },
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfileSetting = { /* TODO: ProfileSetting Screen */ },
+                onNavigateToSecurity = { /* TODO: Security Screen */ },
+                onNavigateToTheme = { /* TODO: Theme Screen */ },
+                onNavigateToAbout = { /* TODO: About Screen */ },
+                onNavigateToEtc = { /* TODO: Etc Screen */ }
+            )
+        }
+
+        // ... (나머지 ROUTE_CRUD_TEST 등 추가 가능)
     }
 }
