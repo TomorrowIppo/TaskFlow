@@ -17,9 +17,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme // 기존 테마 Import
+import com.ippo.taskflow.mvvm.view.init_view.FirstScreen
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+
 // 🚨 필수 MVVM/Screen Imports (경로 확인 필요)
-import com.ippo.taskflow.screen.FirstScreen
-import com.ippo.taskflow.auth.AuthViewModel
+
 
 // 🚨 NavHost 경로 상수 정의 (MainActivity에 위치)
 const val ROUTE_MAIN = "main_screen"
