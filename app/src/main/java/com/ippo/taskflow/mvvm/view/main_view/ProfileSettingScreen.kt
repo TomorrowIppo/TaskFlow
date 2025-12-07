@@ -18,12 +18,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ippo.taskflow.activity.ui.theme.AccentBlue
+import com.ippo.taskflow.activity.ui.theme.LightGreyBackground
+import com.ippo.taskflow.activity.ui.theme.PrimaryGreen
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 
-// 캡처 이미지에서 추출한 색상 (대략적인 근사치)
-val PrimaryGreen = Color(0xFF66BB6A) // 저장 버튼 및 하단 바
-val AccentBlue = Color(0xFF00B0FF) // 프로필 이미지 배경
-val LightGreyBackground = Color(0xFFF0F0F0) // 입력 필드 배경색 근사치
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ippo.taskflow.activity.ui.theme.InputBackground
+import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
@@ -46,10 +48,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-// 공통 색상 (다른 화면과 통일)
-private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFFE0FFE8)
-private val InputBackground = Color(0xFFF7F7F7)
 
 @Composable
 fun AddTaskScreen(
