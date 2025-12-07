@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.main_view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,10 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.view_model.auth.AuthViewModel
 
 // 캡처 이미지에서 추출한 색상 (대략적인 근사치)
 val PrimaryGreen = Color(0xFF66BB6A) // 저장 버튼 및 하단 바
@@ -219,7 +220,7 @@ private fun CustomTextField(
 @Composable
 private fun ActionButton(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     color: Color,
     contentColor: Color = Color.White,

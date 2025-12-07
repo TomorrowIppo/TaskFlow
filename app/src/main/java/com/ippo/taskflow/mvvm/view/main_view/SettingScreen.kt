@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.main_view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,10 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
-import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.view_model.auth.AuthViewModel
 
 // 💡 MVVM 표준: ViewModel + 네비게이션 액션만 인자로 받는다.
 @OptIn(ExperimentalMaterial3Api::class)
@@ -223,7 +224,7 @@ private fun TaskFlowBottomNavBar() {
 
 @Composable
 private fun BottomNavItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     onClick: () -> Unit
 ) {

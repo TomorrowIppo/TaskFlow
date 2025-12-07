@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.init_view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.view_model.auth.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

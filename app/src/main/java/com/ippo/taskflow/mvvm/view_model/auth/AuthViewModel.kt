@@ -1,14 +1,12 @@
-package com.ippo.taskflow.auth
+package com.ippo.taskflow.mvvm.view_model.auth
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
-import com.ippo.taskflow.data.User // User 데이터 모델 Import
+import com.ippo.taskflow.mvvm.model.User // User 데이터 모델 Import
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.regex.Pattern
 

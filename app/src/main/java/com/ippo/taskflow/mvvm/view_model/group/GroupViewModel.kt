@@ -1,14 +1,14 @@
-package com.ippo.taskflow.group
+package com.ippo.taskflow.mvvm.view_model.group
 
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.ippo.taskflow.data.Group
-import com.ippo.taskflow.data.User // User 모델 임포트
-import com.ippo.taskflow.task.TaskViewModel
-import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.model.Group
+import com.ippo.taskflow.mvvm.model.User // User 모델 임포트
+import com.ippo.taskflow.view_model.task.TaskViewModel
+import com.ippo.taskflow.view_model.auth.AuthViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Date

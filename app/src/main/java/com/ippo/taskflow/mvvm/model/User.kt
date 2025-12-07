@@ -1,4 +1,4 @@
-package com.ippo.taskflow.data
+package com.ippo.taskflow.mvvm.model
 
 import com.google.firebase.firestore.DocumentId
 import java.util.Date

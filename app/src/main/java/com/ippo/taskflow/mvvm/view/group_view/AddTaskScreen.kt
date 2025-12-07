@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.group_view
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -39,8 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.group.GroupViewModel
-import com.ippo.taskflow.task.TaskViewModel
+import com.ippo.taskflow.view_model.group.GroupViewModel
+import com.ippo.taskflow.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

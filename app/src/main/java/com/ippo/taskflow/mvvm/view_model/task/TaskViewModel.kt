@@ -1,11 +1,11 @@
-package com.ippo.taskflow.task
+package com.ippo.taskflow.mvvm.view_model.task
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.WriteBatch
-import com.ippo.taskflow.data.Task
+import com.ippo.taskflow.mvvm.model.Task
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

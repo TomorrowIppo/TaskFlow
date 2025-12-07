@@ -16,10 +16,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import com.ippo.taskflow.group.GroupViewModel
-import com.ippo.taskflow.task.TaskViewModel
-import com.ippo.taskflow.data.Task
-import com.ippo.taskflow.data.Group
+import com.ippo.taskflow.view_model.group.GroupViewModel
+import com.ippo.taskflow.view_model.task.TaskViewModel
+import com.ippo.taskflow.mvvm.model.Task
+import com.ippo.taskflow.mvvm.model.Group
 import java.util.Date
 
 // PM Note: 주 색상 상수 정의

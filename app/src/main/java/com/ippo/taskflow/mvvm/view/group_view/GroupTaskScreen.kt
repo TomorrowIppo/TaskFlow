@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.group_view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,8 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,8 +34,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.data.Group
-import com.ippo.taskflow.group.GroupViewModel
+import com.ippo.taskflow.mvvm.model.Group
+import com.ippo.taskflow.view_model.group.GroupViewModel
 
 // 메인 색상 (MainScreen과 통일)
 private val TaskFlowGreen = Color(0xFF1E8A3B)

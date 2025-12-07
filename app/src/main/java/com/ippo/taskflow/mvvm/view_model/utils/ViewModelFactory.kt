@@ -1,10 +1,10 @@
-package com.ippo.taskflow.utils
+package com.ippo.taskflow.mvvm.view_model.utils
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.ippo.taskflow.auth.AuthViewModel
-import com.ippo.taskflow.group.GroupViewModel
-import com.ippo.taskflow.task.TaskViewModel
+import com.ippo.taskflow.view_model.auth.AuthViewModel
+import com.ippo.taskflow.view_model.group.GroupViewModel
+import com.ippo.taskflow.view_model.task.TaskViewModel
 
 class ViewModelFactory(
     private val authViewModel: AuthViewModel,

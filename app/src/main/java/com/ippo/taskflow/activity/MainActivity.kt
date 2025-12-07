@@ -15,13 +15,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme
 // 🚨 필수 MVVM/Screen Imports
-import com.ippo.taskflow.screen.FirstScreen
-import com.ippo.taskflow.screen.LoginScreen
-import com.ippo.taskflow.screen.MainScreen
-import com.ippo.taskflow.screen.RegisterScreen
-import com.ippo.taskflow.screen.SettingScreen
-import com.ippo.taskflow.auth.AuthViewModel
-import com.ippo.taskflow.task.TaskViewModel // TaskViewModel Import
+import com.ippo.taskflow.mvvm.view.init_view.FirstScreen
+import com.ippo.taskflow.mvvm.view.init_view.LoginScreen
+import com.ippo.taskflow.mvvm.view.main_view.MainScreen
+import com.ippo.taskflow.mvvm.view.init_view.RegisterScreen
+import com.ippo.taskflow.mvvm.view.main_view.SettingScreen
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel // TaskViewModel Import
 
 // 🚨 NavHost 경로 상수 정의 (수정 없이 기존 유지)
 const val ROUTE_MAIN = "main_screen"
@@ -51,8 +51,8 @@ fun AppNavigation() {
     val navController = rememberNavController()
 
     // 💡 ViewModel 생성
-    val authViewModel: AuthViewModel = viewModel()
-    val taskViewModel: TaskViewModel = viewModel() // TaskViewModel 추가
+    val authViewModel: com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel = viewModel()
+    val taskViewModel: com.ippo.taskflow.mvvm.view_model.task.TaskViewModel = viewModel() // TaskViewModel 추가
 
     // AuthViewModel의 상태를 이용해 FirstScreen에서 바로 Main으로 분기하도록 연결
     NavHost(
@@ -62,7 +62,7 @@ fun AppNavigation() {
 
         // 1. FirstScreen (Onboarding/Splash) 경로
         composable(ROUTE_ONBOARDING) {
-            FirstScreen(
+            _root_ide_package_.com.ippo.taskflow.mvvm.view.init_view.FirstScreen(
                 authViewModel = authViewModel,
                 // NavHost로 화면 전환 액션 정의
                 onNavigateToLogin = {
@@ -80,7 +80,7 @@ fun AppNavigation() {
 
         // 2. LoginScreen 경로
         composable(ROUTE_LOGIN) {
-            LoginScreen(
+            _root_ide_package_.com.ippo.taskflow.mvvm.view.init_view.LoginScreen(
                 authViewModel = authViewModel,
                 onNavigateToMain = {
                     navController.navigate(ROUTE_MAIN) {
@@ -98,7 +98,7 @@ fun AppNavigation() {
 
         // 3. RegisterScreen 경로
         composable(ROUTE_REGISTER) {
-            RegisterScreen(
+            _root_ide_package_.com.ippo.taskflow.mvvm.view.init_view.RegisterScreen(
                 authViewModel = authViewModel, // 회원가입 로직은 VM에서 처리
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToLogin = {
@@ -111,7 +111,7 @@ fun AppNavigation() {
 
         // 4. MainScreen 경로
         composable(ROUTE_MAIN) {
-            MainScreen(
+            _root_ide_package_.com.ippo.taskflow.mvvm.view.main_view.MainScreen(
                 authViewModel = authViewModel,
                 taskViewModel = taskViewModel,
                 onNavigateToSettings = { navController.navigate(ROUTE_SETTINGS) },
@@ -122,7 +122,7 @@ fun AppNavigation() {
 
         // 5. SettingScreen 경로 (새로 추가)
         composable(ROUTE_SETTINGS) {
-            SettingScreen(
+            _root_ide_package_.com.ippo.taskflow.mvvm.view.main_view.SettingScreen(
                 authViewModel = authViewModel,
                 onNavigateToLogin = {
                     navController.navigate(ROUTE_LOGIN) {

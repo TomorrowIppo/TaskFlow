@@ -1,12 +1,16 @@
-package com.ippo.taskflow.data
+package com.ippo.taskflow.mvvm.model
 
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
-/**
- * Tasks Collection 문서 구조를 위한 데이터 클래스
- */
+// TaskStatus.kt
+enum class TaskStatus(val value: String) {
+    TODO("TODO"),
+    IN_PROGRESS("IN_PROGRESS"),
+    DONE("DONE"),
+    BLOCKED("BLOCKED")
+}
 data class Task(
     // 💡 Firestore 문서 ID와 매핑됩니다.
     @DocumentId
@@ -19,7 +23,7 @@ data class Task(
     val description: String = "",
 
     // 상태: "TODO", "IN_PROGRESS", "DONE", "BLOCKED" (BLOCKED 추가를 위해 String 유지)
-    val status: String = "IN_PROGRESS",
+    val status: TaskStatus = TaskStatus.IN_PROGRESS,
 
     // 우선순위: 1(높음) ~ 3(낮음)
     val priority: Int = 3,
