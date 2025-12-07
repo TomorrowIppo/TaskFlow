@@ -21,7 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.view_model.auth.AuthViewModel // AuthViewModel Import
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel // AuthViewModel Import
 import com.ippo.taskflow.mvvm.model.User // User 데이터 모델 Import
 
 // 임시 아이콘 Import (실제 프로젝트 아이콘으로 교체 필요)

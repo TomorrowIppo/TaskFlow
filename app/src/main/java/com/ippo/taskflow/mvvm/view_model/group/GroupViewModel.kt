@@ -7,8 +7,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.ippo.taskflow.mvvm.model.Group
 import com.ippo.taskflow.mvvm.model.User // User 모델 임포트
-import com.ippo.taskflow.view_model.task.TaskViewModel
-import com.ippo.taskflow.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Date

@@ -21,7 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
-import com.ippo.taskflow.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 
 // 💡 MVVM 표준: ViewModel + 네비게이션 액션만 인자로 받는다.
 @OptIn(ExperimentalMaterial3Api::class)

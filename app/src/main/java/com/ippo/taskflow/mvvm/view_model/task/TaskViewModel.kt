@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.WriteBatch
 import com.ippo.taskflow.mvvm.model.Task
+import com.ippo.taskflow.mvvm.model.TaskStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -87,7 +88,7 @@ class TaskViewModel : ViewModel() {
             groupId = groupId,
             title = title,
             assignedToUid = assignedToUid,
-            status = if (precursorTaskId != null) "BLOCKED" else "TODO", // 선행 Task가 있으면 BLOCKED
+            status = if (precursorTaskId != null) TaskStatus.BLOCKED else TaskStatus.TODO, // 선행 Task가 있으면 BLOCKED
             priority = priority,
             dueDate = dueDate,
             precursorTaskId = precursorTaskId, // ✅ 추가
@@ -157,10 +158,10 @@ class TaskViewModel : ViewModel() {
 
                 val metrics = TaskMetrics(
                     total = tasks.size,
-                    todo = tasks.count { it.status == "TODO" },
-                    inProgress = tasks.count { it.status == "IN_PROGRESS" },
-                    done = tasks.count { it.status == "DONE" },
-                    blocked = tasks.count { it.status == "BLOCKED" } // ✅ BLOCKED 상태 카운트 추가
+                    todo = tasks.count { it.status == TaskStatus.TODO },
+                    inProgress = tasks.count { it.status == TaskStatus.IN_PROGRESS },
+                    done = tasks.count { it.status == TaskStatus.DONE },
+                    blocked = tasks.count { it.status == TaskStatus.BLOCKED } // ✅ BLOCKED 상태 카운트 추가
                 )
                 _taskMetrics.value = metrics
             }

@@ -39,8 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.view_model.group.GroupViewModel
-import com.ippo.taskflow.view_model.task.TaskViewModel
+import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

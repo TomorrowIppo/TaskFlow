@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ippo.taskflow.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 
 // 캡처 이미지에서 추출한 색상 (대략적인 근사치)
 val PrimaryGreen = Color(0xFF66BB6A) // 저장 버튼 및 하단 바

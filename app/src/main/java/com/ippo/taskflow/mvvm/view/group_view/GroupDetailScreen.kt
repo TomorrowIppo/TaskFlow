@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ippo.taskflow.activity.ui.theme.LightGreyBackground
 import com.ippo.taskflow.activity.ui.theme.PrimaryGreen
-import com.ippo.taskflow.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
