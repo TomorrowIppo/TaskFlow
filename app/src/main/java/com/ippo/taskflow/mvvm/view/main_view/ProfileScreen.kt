@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.main_view
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,13 +19,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.R
-import com.ippo.taskflow.auth.AuthViewModel // AuthViewModel Import
-import com.ippo.taskflow.data.User // User 데이터 모델 Import
-import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel // AuthViewModel Import
+import com.ippo.taskflow.mvvm.model.User // User 데이터 모델 Import
 
 // 임시 아이콘 Import (실제 프로젝트 아이콘으로 교체 필요)
 import androidx.compose.material.icons.filled.Home

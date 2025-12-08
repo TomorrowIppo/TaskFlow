@@ -1,6 +1,5 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.main_view
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,7 +24,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,21 +35,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.ippo.taskflow.auth.AuthViewModel
-import com.ippo.taskflow.data.Task
-import com.ippo.taskflow.task.TaskViewModel
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.map
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.model.Task
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.runtime.collectAsState
+import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
+import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
+import com.ippo.taskflow.mvvm.model.TaskStatus
 
-// 메인 색상들 (Figma 참고용)
-private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFFE0FFE8)
-private val TaskCardBackground = Color(0xFFFDF9FF)
 
 @Composable
 fun MainScreen(
@@ -69,6 +63,10 @@ fun MainScreen(
     val isLoadingTasks by taskViewModel.isLoading.collectAsState()
     val taskError by taskViewModel.error.collectAsState()
 
+    // ⭐️ 핵심 수정: ViewModel에서 계산된 완료율을 직접 가져옵니다. (View에서는 계산 로직 제거)
+    val completionPercentage by taskViewModel.completionPercentage.collectAsState()
+
+
     // 이름: User 프로필 → FirebaseUser.displayName 순으로 우선 사용
     val userName = when {
         !profile?.name.isNullOrBlank() -> profile!!.name
@@ -79,11 +77,7 @@ fun MainScreen(
     // 사진 URL (없으면 null → 기본 아바타 렌더링)
     val photoUrl = firebaseUser?.photoUrl?.toString()
 
-    // 완료율 계산
-    val totalTasks = taskList.size
-    val completedTasks = taskList.count { it.status.uppercase(Locale.getDefault()) == "DONE" }
-    val completionRatio = if (totalTasks == 0) 0f else completedTasks.toFloat() / totalTasks.toFloat()
-    val completionPercentage = (completionRatio * 100).toInt()
+    // ❌ 제거된 코드: MainScreen에서 완료율을 직접 계산하던 로직
 
     Scaffold(
         bottomBar = {
@@ -114,6 +108,7 @@ fun MainScreen(
 
                 // 진행률 대시보드
                 ProgressDashboard(
+                    // ⭐️ 수정: ViewModel에서 받은 completionPercentage 값을 사용
                     completionPercentage = completionPercentage
                 )
 
@@ -133,8 +128,9 @@ fun MainScreen(
                     isLoading = isLoadingTasks,
                     errorMessage = taskError,
                     onTaskStatusToggle = { task ->
+                        // TaskStatus가 Enum 타입이라고 가정하고 처리
                         val newStatus =
-                            if (task.status.uppercase(Locale.getDefault()) == "DONE") "TODO" else "DONE"
+                            if (task.status == TaskStatus.DONE) TaskStatus.TODO.name else TaskStatus.DONE.name
                         taskViewModel.updateTaskStatus(task.taskId, newStatus)
                     }
                 )
@@ -411,8 +407,8 @@ private fun TaskCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             IconButton(onClick = onToggleStatus) {
-                val isDone =
-                    task.status.uppercase(Locale.getDefault()) == "DONE"
+                // ⭐️ 수정: task.status를 TaskStatus Enum과 직접 비교하도록 가정하고 사용
+                val isDone = task.status == TaskStatus.DONE
                 Icon(
                     imageVector = if (isDone) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
                     contentDescription = if (isDone) "완료" else "미완료",
@@ -425,6 +421,7 @@ private fun TaskCard(
 
 private fun formatDueDate(date: Date?): String? {
     if (date == null) return null
+    // Locale을 사용하는 SimpleDateFormat은 Compose Preview 등에서 오류를 줄입니다.
     val formatter = SimpleDateFormat("a hh:mm", Locale.getDefault())
     return formatter.format(date)
 }

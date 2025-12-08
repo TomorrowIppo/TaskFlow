@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.init_view
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -23,9 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+
 // 🔹 명세서 준수용 외부 API
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

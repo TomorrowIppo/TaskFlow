@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.group_view
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -39,20 +39,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.group.GroupViewModel
-import com.ippo.taskflow.task.TaskViewModel
+import com.ippo.taskflow.activity.ui.theme.InputBackground
+import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
+import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-// 공통 색상 (다른 화면과 통일)
-private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFFE0FFE8)
-private val InputBackground = Color(0xFFF7F7F7)
 
 @Composable
 fun AddTaskScreen(
+    initialGroupId: String,
     taskViewModel: TaskViewModel,
     groupViewModel: GroupViewModel,
     onTaskCreated: () -> Unit,
@@ -75,15 +74,18 @@ fun AddTaskScreen(
     var selectedTimeText by rememberSaveable { mutableStateOf("") }
     var dueDate: Date? by rememberSaveable { mutableStateOf<Date?>(null) }
 
-    var selectedGroupId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedGroupId by rememberSaveable { mutableStateOf(initialGroupId) }
     var selectedGroupName by rememberSaveable { mutableStateOf("Task 그룹을 선택하세요") }
     var isGroupDropdownExpanded by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
 
-    // 화면 진입 시 그룹 목록 로드
-    LaunchedEffect(Unit) {
-        groupViewModel.loadGroups()
+    // ⭐️ 추가: GroupList가 로드된 후, 초기 Group ID에 해당하는 이름으로 selectedGroupName 업데이트
+    LaunchedEffect(groupList) {
+        val initialGroup = groupList.find { it.groupId == initialGroupId }
+        if (initialGroup != null) {
+            selectedGroupName = initialGroup.name
+        }
     }
 
     val isCreateEnabled = taskName.isNotBlank() && selectedGroupId != null

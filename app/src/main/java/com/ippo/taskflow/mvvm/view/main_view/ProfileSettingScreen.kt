@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.main_view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,16 +14,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ippo.taskflow.activity.ui.theme.AccentBlue
 import com.ippo.taskflow.activity.ui.theme.LightGreyBackground
 import com.ippo.taskflow.activity.ui.theme.PrimaryGreen
-import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GroupDetailScreen(
+fun ProfileSettingScreen(
     authViewModel: AuthViewModel = viewModel(),
     onSignedOut: () -> Unit,
     onNavigateBack: () -> Unit
@@ -47,20 +50,20 @@ fun GroupDetailScreen(
 
     // 에러 및 저장 성공 시 Snackbar 표시
     LaunchedEffect(error, isProfileUpdating) {
-        if (!isProfileUpdating) {
-            if (error != null) {
-                snackbarHostState.showSnackbar("프로필 업데이트 실패: $error")
-                authViewModel.clearError()
-            } else if (profile != null) {
-                if (nameState == profile!!.name.orEmpty() && statusMsgState == profile!!.statusMsg.orEmpty() && error == null) {
-                    snackbarHostState.showSnackbar("프로필 정보가 저장되었습니다.")
-                }
+        if (!isProfileUpdating && error != null) {
+            snackbarHostState.showSnackbar("프로필 업데이트 실패: $error")
+            authViewModel.clearError()
+        } else if (!isProfileUpdating && error == null && profile != null) {
+            // 저장 성공 알림 (데이터 변경 없음이 확인되면 알림)
+            if (nameState == profile!!.name.orEmpty() && statusMsgState == profile!!.statusMsg.orEmpty()) {
+                snackbarHostState.showSnackbar("프로필 정보가 저장되었습니다.")
             }
         }
     }
 
     val isDataModified = remember(nameState, statusMsgState, profile) {
         if (profile == null) return@remember false
+        // profile이 non-null일 때 안전하게 비교
         nameState != (profile?.name.orEmpty()) || statusMsgState != (profile?.statusMsg.orEmpty())
     }
 
@@ -83,7 +86,7 @@ fun GroupDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Group Detail", color = Color.Black) },
+                title = { Text("Profile Setting", color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기", tint = Color.Black)
@@ -98,19 +101,23 @@ fun GroupDetailScreen(
         bottomBar = { SimpleBottomNavBar() }
     ) { padding ->
 
+        // 🚨 **[CRITICAL FIX]** 로딩 및 Null 체크
         if (currentUser == null) {
+            // 로그인되어 있지 않으면 로그인 화면으로 이동
             LaunchedEffect(Unit) { onSignedOut() }
             return@Scaffold
         }
 
         if (profile == null) {
+            // 프로필 정보 로딩 중 표시
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
             return@Scaffold
         }
+        // 로딩 완료 -> 이 시점부터 profile은 non-null 보장
 
-        // --- UI 콘텐츠 시작 ---
+        // --- 3. UI 콘텐츠 시작 ---
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -118,29 +125,68 @@ fun GroupDetailScreen(
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Group Detail Content (Placeholder - 이전 ProfileSetting UI 재사용)
-            Text("Group Name: ${profile?.name.orEmpty()}", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Members: 5", style = MaterialTheme.typography.bodyLarge)
+            // --- 1. 프로필 이미지 ---
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(CircleShape)
+                    .background(AccentBlue)
+            ) {
+                Text("Image", color = Color.White, modifier = Modifier.align(Alignment.Center))
+            }
+            Spacer(modifier = Modifier.height(48.dp))
 
-            // 4. 저장 / 취소 버튼 그룹 (예시)
+            // --- 2. 별명 (닉네임) 입력 필드 ---
+            Text("별명", modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(4.dp))
+            CustomTextField(
+                value = nameState,
+                onValueChange = { nameState = it },
+                placeholder = "김연아",
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- 3. 상태 메시지 입력 필드 ---
+            Text("상태메시지", modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(4.dp))
+            CustomTextField(
+                value = statusMsgState,
+                onValueChange = { statusMsgState = it },
+                placeholder = "안녕!",
+                minLines = 3,
+                maxLines = 5
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // --- 4. 저장 / 취소 버튼 그룹 ---
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
+                // 4-1. 저장 버튼
                 ActionButton(
-                    text = "그룹 나가기",
+                    text = "저장",
+                    icon = Icons.Default.Check,
+                    onClick = ::handleUpdateProfile,
+                    color = PrimaryGreen,
+                    enabled = isDataModified && !isProfileUpdating
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                // 4-2. 취소 버튼
+                ActionButton(
+                    text = "취소",
                     icon = Icons.Default.Close,
-                    onClick = { /* Handle leave group */ },
-                    color = Color.Red,
-                    contentColor = Color.White
+                    onClick = ::handleCancel,
+                    color = Color(0xFFE0E0E0),
+                    contentColor = Color.Black,
+                    enabled = isDataModified
                 )
             }
         }
     }
 }
 
-// 사용자 정의 컴포넌트
+// 캡처본 스타일의 입력 필드
 @Composable
 private fun CustomTextField(
     value: String,
@@ -169,10 +215,11 @@ private fun CustomTextField(
     )
 }
 
+// 캡처본 스타일의 저장/취소 버튼
 @Composable
 private fun ActionButton(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     onClick: () -> Unit,
     color: Color,
     contentColor: Color = Color.White,
@@ -195,6 +242,7 @@ private fun ActionButton(
     }
 }
 
+// 캡처본 스타일의 하단 네비게이션 바
 @Composable
 private fun SimpleBottomNavBar() {
     val NavBarColor = Color(0xFFB9F6CA)
@@ -214,17 +262,19 @@ private fun SimpleBottomNavBar() {
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 아이콘 Placeholder
+            // 첫 번째 아이콘 (집 모양)
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .background(NavItemColor, CircleShape)
             )
+            // 두 번째 아이콘 (큐브 모양 - 중앙)
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .background(NavItemColor, RoundedCornerShape(8.dp))
             )
+            // 세 번째 아이콘 (클로버 모양)
             Box(
                 modifier = Modifier
                     .size(32.dp)

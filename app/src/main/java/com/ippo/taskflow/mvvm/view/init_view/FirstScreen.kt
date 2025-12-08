@@ -1,4 +1,4 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.init_view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 // 🚨 새로 추가된 Import
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
-import com.ippo.taskflow.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import com.ippo.taskflow.R // R 클래스 접근을 위해 필요할 수 있음
 
 // 💡 MVVM 표준: AuthViewModel과 네비게이션 액션만 인자로 받는다.

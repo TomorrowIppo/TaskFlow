@@ -1,8 +1,7 @@
-package com.ippo.taskflow.screen
+package com.ippo.taskflow.mvvm.view.group_view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -10,49 +9,33 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ippo.taskflow.auth.AuthViewModel
-import com.ippo.taskflow.group.GroupViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 
-// 메인 색상 (다른 화면과 통일)
-private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFFE0FFE8)
+// 🚨 임시 색상 정의 (실제 프로젝트 경로에 따라 Import 필요)
+val TaskFlowGreen = Color(0xFF69F0AE)
+val TaskFlowLightGreen = Color(0xFFB9F6CA)
 
 @Composable
 fun AddGroupScreen(
     groupViewModel: GroupViewModel,
     authViewModel: AuthViewModel,
-    onGroupAdded: () -> Unit,
+    // 🚨 [수정] NavHost의 onTaskCreated 콜백에 맞춰 통일 (onGroupAdded 대신 사용)
+    onTaskCreated: () -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToMain: () -> Unit,
-    onNavigateToGroups: () -> Unit,
-    onNavigateToProfile: () -> Unit,
 ) {
-    // UI 상태 (이름/설명/이메일 입력값 등)는 ViewModel 말고 화면 로컬 상태로 관리
+    // UI 상태 (이름/설명/이메일 입력값 등)
     var groupName by rememberSaveable { mutableStateOf("") }
     var groupDescription by rememberSaveable { mutableStateOf("") }
 
@@ -65,13 +48,23 @@ fun AddGroupScreen(
 
     val isCreateEnabled = groupName.isNotBlank() // 생성자 본인은 자동 멤버이므로 이것만 체크
 
+    // 💡 Side Effect: Group 생성 성공 시 Navigaton
+    LaunchedEffect(groupViewModel.groupCreationSuccess) {
+        groupViewModel.groupCreationSuccess.collect { isSuccess ->
+            if (isSuccess) {
+                onTaskCreated()
+                // 성공 후 상태 초기화 (옵션)
+                groupViewModel.resetGroupCreationStatus()
+            }
+        }
+    }
+
     Scaffold(
+        // 🚨 [수정] AddGroupScreen에서는 메인 BottomBar를 사용하지 않는 것이 일반적입니다.
+        // 필요하다면 임시 Placeholder로 대체하거나, 메인 NavHost의 BottomBar 설정을 따르세요.
         bottomBar = {
-            AddGroupBottomNavBar(
-                onHomeClick = onNavigateToMain,
-                onGroupsClick = onNavigateToGroups,
-                onProfileClick = onNavigateToProfile
-            )
+            // AddGroupBottomNavBar(onHomeClick = {}, onGroupsClick = {}, onProfileClick = {})
+            // 현재 화면에서는 네비게이션 복잡도를 줄이기 위해 비활성화
         }
     ) { innerPadding ->
         Surface(
@@ -110,7 +103,7 @@ fun AddGroupScreen(
                 TaskFlowInputBox(
                     value = groupName,
                     onValueChange = { groupName = it },
-                    placeholder = "Task 이름을 입력하세요.",
+                    placeholder = "Group 이름을 입력하세요.",
                     singleLine = true,
                 )
 
@@ -225,16 +218,14 @@ fun AddGroupScreen(
                 // Group 추가 버튼
                 Button(
                     onClick = {
-                        // 현재 GroupViewModel.createGroup(name, description)은
-                        // 생성자 본인만 멤버로 추가하므로, 초대한 이메일들은
-                        // 추후 GroupDetailScreen 등에서 inviteMemberByEmail로 처리 예정.
+                        // 💡 GroupViewModel 내부에서 groupCreationSuccess 상태를 업데이트해야 합니다.
                         groupViewModel.createGroup(
                             name = groupName,
                             description = groupDescription
+                            // 초대된 이메일 처리 로직은 ViewModel에 따라 달라짐.
+                            // members = invitedEmails.mapNotNull { authViewModel.getUidByEmail(it) }
+                            // 이메일은 생성 후 GroupDetail에서 개별 초대하는 것이 일반적일 수 있습니다.
                         )
-
-                        // 현재 구조상 성공 콜백이 없어서, 우선 즉시 돌아가게 처리
-                        onGroupAdded()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -267,11 +258,10 @@ fun AddGroupScreen(
     }
 }
 
+// --- 보조 컴포넌트 (TaskFlowInputBox, AddGroupTopBar, AddGroupBottomNavBar) ---
+
 /**
  * Figma 스타일에 맞춘 공통 입력 박스 컴포넌트
- * - BasicTextField 기반
- * - 배경 연회색, 라운드, 포커스 시 스타일 변화 없음
- * - placeholder 직접 구현
  */
 @Composable
 private fun TaskFlowInputBox(
@@ -343,6 +333,7 @@ private fun AddGroupTopBar(
     }
 }
 
+// 🚨 [참고] 이 BottomNavBar는 이 화면에서 사용되지 않습니다.
 @Composable
 private fun AddGroupBottomNavBar(
     onHomeClick: () -> Unit,

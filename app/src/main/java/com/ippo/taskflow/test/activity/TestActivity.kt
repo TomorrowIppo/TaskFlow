@@ -14,16 +14,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.ippo.taskflow.ui.theme.TaskFlowTheme
-import com.ippo.taskflow.auth.AuthViewModel
-import com.ippo.taskflow.group.GroupViewModel
+import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.screen.auth.LoginScreen
 import com.ippo.taskflow.screen.auth.RegisterScreen
-import com.ippo.taskflow.task.TaskViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import com.ippo.taskflow.test.screen.ProfileScreen
 import com.ippo.taskflow.test.screen.ProfileSettingScreen
 import com.ippo.taskflow.test.screen.TestCRUDScreen
-import com.ippo.taskflow.utils.ViewModelFactory
+import com.ippo.taskflow.mvvm.view_model.utils.ViewModelFactory
 
 // =========================================================================
 // 0. NavHost Route 상수 정의 (가독성 향상)
