@@ -51,6 +51,7 @@ import java.util.Locale
 
 @Composable
 fun AddTaskScreen(
+    initialGroupId: String,
     taskViewModel: TaskViewModel,
     groupViewModel: GroupViewModel,
     onTaskCreated: () -> Unit,
@@ -73,15 +74,18 @@ fun AddTaskScreen(
     var selectedTimeText by rememberSaveable { mutableStateOf("") }
     var dueDate: Date? by rememberSaveable { mutableStateOf<Date?>(null) }
 
-    var selectedGroupId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedGroupId by rememberSaveable { mutableStateOf(initialGroupId) }
     var selectedGroupName by rememberSaveable { mutableStateOf("Task 그룹을 선택하세요") }
     var isGroupDropdownExpanded by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
 
-    // 화면 진입 시 그룹 목록 로드
-    LaunchedEffect(Unit) {
-        groupViewModel.loadGroups()
+    // ⭐️ 추가: GroupList가 로드된 후, 초기 Group ID에 해당하는 이름으로 selectedGroupName 업데이트
+    LaunchedEffect(groupList) {
+        val initialGroup = groupList.find { it.groupId == initialGroupId }
+        if (initialGroup != null) {
+            selectedGroupName = initialGroup.name
+        }
     }
 
     val isCreateEnabled = taskName.isNotBlank() && selectedGroupId != null

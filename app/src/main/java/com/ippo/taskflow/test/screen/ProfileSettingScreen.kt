@@ -9,7 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ippo.taskflow.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -16,10 +16,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import com.ippo.taskflow.view_model.group.GroupViewModel
-import com.ippo.taskflow.view_model.task.TaskViewModel
+import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import com.ippo.taskflow.mvvm.model.Task
 import com.ippo.taskflow.mvvm.model.Group
+import com.ippo.taskflow.mvvm.model.TaskStatus
 import java.util.Date
 
 // PM Note: 주 색상 상수 정의
@@ -360,7 +361,7 @@ fun GroupListItem(groupName: String, groupId: String, onDeleteClicked: () -> Uni
 
 @Composable
 fun TaskListItem(task: Task, onToggleComplete: (Boolean) -> Unit, onDeleteClicked: () -> Unit) {
-    val isCompleted = task.status == "DONE"
+    val isCompleted = task.status == TaskStatus.DONE
 
     Row(
         modifier = Modifier

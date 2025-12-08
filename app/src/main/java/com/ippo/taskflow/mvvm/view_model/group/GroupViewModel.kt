@@ -6,7 +6,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.ippo.taskflow.mvvm.model.Group
-import com.ippo.taskflow.mvvm.model.User // User 모델 임포트
+import com.ippo.taskflow.mvvm.model.User
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +38,10 @@ class GroupViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    // 💡 [새로 추가된 프로퍼티] 그룹 생성 성공 상태
+    private val _groupCreationSuccess = MutableStateFlow(false)
+    val groupCreationSuccess: StateFlow<Boolean> = _groupCreationSuccess
+
     private var groupDetailListener: ListenerRegistration? = null
     private var groupMembersListener: ListenerRegistration? = null
 
@@ -48,6 +52,13 @@ class GroupViewModel(
         super.onCleared()
         groupDetailListener?.remove()
         groupMembersListener?.remove()
+    }
+
+    /**
+     * 그룹 생성 성공 상태를 초기화합니다. (화면에서 성공 처리 후 호출)
+     */
+    fun resetGroupCreationStatus() {
+        _groupCreationSuccess.value = false
     }
 
     /**
@@ -78,7 +89,7 @@ class GroupViewModel(
     }
 
     /**
-     * ✅ 추가: 단일 그룹의 상세 정보를 실시간으로 로드합니다.
+     * 단일 그룹의 상세 정보를 실시간으로 로드합니다.
      */
     fun loadGroupDetail(groupId: String) {
         groupDetailListener?.remove()
@@ -105,7 +116,7 @@ class GroupViewModel(
     }
 
     /**
-     * ✅ 추가: 그룹 멤버들의 프로필 정보를 로드합니다.
+     * 그룹 멤버들의 프로필 정보를 로드합니다.
      */
     private fun loadGroupMembers(memberUids: List<String>) {
         groupMembersListener?.remove()
@@ -114,8 +125,6 @@ class GroupViewModel(
             return
         }
 
-        // Firestore in 쿼리는 최대 10개 제한이 있으므로, 더 복잡한 로직이 필요할 수 있으나,
-        // 여기서는 최대 10명 이내로 가정하고 in 쿼리를 사용합니다.
         groupMembersListener = db.collection("users")
             .whereIn("uid", memberUids)
             .addSnapshotListener { snapshot, e ->
@@ -142,6 +151,7 @@ class GroupViewModel(
 
         _isLoading.value = true
         _error.value = null
+        _groupCreationSuccess.value = false // 생성 시도 시 초기화
 
         val newGroup = Group(
             name = name,
@@ -156,6 +166,8 @@ class GroupViewModel(
             .add(newGroup)
             .addOnSuccessListener {
                 _isLoading.value = false
+                // 💡 그룹 생성 성공 시 StateFlow 업데이트
+                _groupCreationSuccess.value = true
             }
             .addOnFailureListener { e ->
                 _isLoading.value = false
@@ -172,7 +184,7 @@ class GroupViewModel(
             return
         }
 
-        // 🚨 1. TaskViewModel에게 해당 그룹의 모든 Task 삭제를 명령합니다. (Cascading Delete)
+        // 1. TaskViewModel에게 해당 그룹의 모든 Task 삭제를 명령합니다. (Cascading Delete)
         taskViewModel.deleteAllTasksInGroup(groupId)
 
         // 2. 그룹 문서 삭제 실행

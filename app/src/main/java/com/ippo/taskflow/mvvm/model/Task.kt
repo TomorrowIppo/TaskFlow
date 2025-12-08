@@ -43,4 +43,8 @@ data class Task(
     // 💡 서버 타임스탬프와 매핑됩니다. (문서 생성 시점)
     @ServerTimestamp
     val createdAt: Date? = null
-)
+) {
+    // 💡 DONE 상태를 기반으로 완료 여부를 판단하는 Getter
+    val isCompleted: Boolean
+        get() = this.status == TaskStatus.DONE
+}
