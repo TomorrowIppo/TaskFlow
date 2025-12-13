@@ -1,14 +1,14 @@
 package com.ippo.taskflow.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -17,12 +17,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.ippo.taskflow.R
 import com.ippo.taskflow.auth.AuthViewModel
 
-// 💡 MVVM 표준: ViewModel + 네비게이션 액션만 인자로 받는다.
+// ✅ Main/Login/Register와 동일 컬러 시스템
+private val TaskFlowGreen = Color(0xFF1E8A3B)
+private val TaskFlowLightGreen = Color(0xFF60FF8A)
+private val ScreenBg = Color(0xFFFFFFFF)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingScreen(
@@ -34,11 +40,13 @@ fun SettingScreen(
     onNavigateToTheme: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onNavigateToEtc: () -> Unit,
+    // ✅ 하단바 동작도 유지 가능하게 외부로 빼둠 (기존 TODO 대신 실제 네비게이션 연결 가능)
+    onNavigateToMain: () -> Unit = {},
+    onNavigateToGroups: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
 ) {
-    // 1. ViewModel의 상태를 관찰한다.
     val isLoading by authViewModel.isLoading.collectAsState(initial = false)
 
-    // 2. ViewModel → 순수 UI 레이어로 브릿지
     SettingScreenScaffold(
         isLoading = isLoading,
         onNavigateBack = onNavigateBack,
@@ -47,6 +55,9 @@ fun SettingScreen(
         onNavigateToTheme = onNavigateToTheme,
         onNavigateToAbout = onNavigateToAbout,
         onNavigateToEtc = onNavigateToEtc,
+        onNavigateToMain = onNavigateToMain,
+        onNavigateToGroups = onNavigateToGroups,
+        onNavigateToProfile = onNavigateToProfile,
         onLogout = {
             if (!isLoading) {
                 authViewModel.signOut()
@@ -58,7 +69,6 @@ fun SettingScreen(
 
 /**
  * ViewModel에 의존하지 않는 순수 UI Composable
- * 👉 Preview에서는 이걸 직접 호출한다.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,187 +80,203 @@ private fun SettingScreenScaffold(
     onNavigateToTheme: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onNavigateToEtc: () -> Unit,
+    onNavigateToMain: () -> Unit,
+    onNavigateToGroups: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     onLogout: () -> Unit,
 ) {
+    // ✅ 기존 기능(타이틀/항목/로그아웃)은 유지, UI만 통일
+    val items = listOf(
+        SettingItem("프로필설정", onNavigateToProfileSetting),
+        SettingItem("개인/보안", onNavigateToSecurity),
+        SettingItem("테마", onNavigateToTheme),
+        SettingItem("지역", onNavigateToTheme),
+        SettingItem("언어", onNavigateToTheme),
+        SettingItem("알림", onNavigateToAbout),
+        SettingItem("공지사항", onNavigateToAbout),
+        SettingItem("이용약관", onNavigateToAbout),
+        SettingItem("앱 버전", onNavigateToAbout),
+        SettingItem("기타", onNavigateToEtc),
+    )
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "설정",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                navigationIcon = {
+        bottomBar = {
+            // ✅ MainScreen과 동일 하단바 UI (PNG 아이콘)
+            MainBottomNavBar(
+                onHomeClick = onNavigateToMain,
+                onGroupsClick = onNavigateToGroups,
+                onProfileClick = onNavigateToProfile
+            )
+        }
+    ) { innerPadding ->
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ScreenBg)
+                .padding(innerPadding),
+            color = ScreenBg
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                // ✅ Main/Login과 동일 헤더 패턴
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "뒤로가기"
+                            contentDescription = "뒤로가기",
+                            tint = Color.Black
                         )
                     }
-                }
-            )
-        },
-        bottomBar = {
-            TaskFlowBottomNavBar()
-        }
-    ) { innerPadding ->
-        // 실제 Setting UI
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .background(Color(0xFFF5F5F5)), // Figma 배경 느낌
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Figma 기준 카드 컨테이너
-            Surface(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                tonalElevation = 1.dp
-            ) {
-                Column {
-                    SettingMenuItem(title = "프로필설정", onClick = onNavigateToProfileSetting)
-                    Divider()
-                    SettingMenuItem(title = "개인/보안", onClick = onNavigateToSecurity)
-                    Divider()
-                    SettingMenuItem(title = "테마", onClick = onNavigateToTheme)
-                    Divider()
-                    SettingMenuItem(title = "지역", onClick = onNavigateToTheme)
-                    Divider()
-                    SettingMenuItem(title = "언어", onClick = onNavigateToTheme)
-                    Divider()
-                    SettingMenuItem(title = "알림", onClick = onNavigateToAbout)
-                    Divider()
-                    SettingMenuItem(title = "공지사항", onClick = onNavigateToAbout)
-                    Divider()
-                    SettingMenuItem(title = "이용약관", onClick = onNavigateToAbout)
-                    Divider()
-                    SettingMenuItem(title = "앱 버전", onClick = onNavigateToAbout)
-                    Divider()
-                    SettingMenuItem(title = "기타", onClick = onNavigateToEtc)
-                    Divider()
-                    // 🔴 로그아웃
-                    SettingMenuItem(
-                        title = "로그아웃",
-                        isDestructive = true,
-                        onClick = onLogout
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "설정",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.Black
                     )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ✅ 설정 리스트 카드 (Main의 TaskCard 톤)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 6.dp)
+                    ) {
+                        items(items) { item ->
+                            SettingMenuItem(
+                                title = item.title,
+                                isDestructive = false,
+                                enabled = !isLoading,
+                                onClick = item.onClick
+                            )
+                            Divider()
+                        }
+
+                        // 🔴 로그아웃(기능 유지)
+                        item {
+                            SettingMenuItem(
+                                title = if (isLoading) "처리 중..." else "로그아웃",
+                                isDestructive = true,
+                                enabled = !isLoading,
+                                onClick = onLogout
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-/**
- * 단일 설정 항목 Composable
- * - Figma 리스트 아이템 느낌으로 패딩/폰트 맞춤
- */
+private data class SettingItem(
+    val title: String,
+    val onClick: () -> Unit
+)
+
 @Composable
 private fun SettingMenuItem(
     title: String,
-    isDestructive: Boolean = false,
+    isDestructive: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.Medium,
-                color = if (isDestructive)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.onSurface
+                color = when {
+                    !enabled -> Color.Gray
+                    isDestructive -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
             ),
             modifier = Modifier.weight(1f)
         )
-        // ▶ 우측 화살표(Placeholder) — 나중에 아이콘 리소스로 교체 가능
         Text(
             text = "›",
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (enabled) Color.Black else Color.Gray
         )
     }
 }
 
 /**
- * DailyTaskScreen 과 동일하게 사용할 하단 네비게이션 바 (Home / Group / Profile)
- * - 실제 네비게이션 람다는 NavHost 쪽에서 교체 예정.
+ * ✅ MainScreen과 동일한 하단 네비게이션 바 (PNG 아이콘)
+ * - setting에서도 UI 통일을 위해 그대로 사용
  */
 @Composable
-private fun TaskFlowBottomNavBar() {
+private fun MainBottomNavBar(
+    onHomeClick: () -> Unit,
+    onGroupsClick: () -> Unit,
+    onProfileClick: () -> Unit,
+) {
     Surface(
-        color = Color(0xFF9CFFC4), // Figma 하단 그린 톤과 비슷하게
-        tonalElevation = 3.dp,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        tonalElevation = 8.dp,
+        shadowElevation = 8.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 48.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .background(TaskFlowLightGreen)
+                .padding(horizontal = 40.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            BottomNavItem(
-                icon = Icons.Default.Home,
-                label = "Home",
-                onClick = { /* TODO: Home 이동 */ }
-            )
-            BottomNavItem(
-                icon = Icons.Default.Group,
-                label = "Group",
-                onClick = { /* TODO: Group 이동 */ }
-            )
-            BottomNavItem(
-                icon = Icons.Default.Person,
-                label = "Profile",
-                onClick = { /* TODO: Profile 이동 */ }
-            )
+
+            IconButton(onClick = onHomeClick) {
+                Image(
+                    painter = painterResource(R.drawable.ic_home),
+                    contentDescription = "Home",
+                    modifier = Modifier.size(50.dp)
+                )
+            }
+
+            IconButton(onClick = onGroupsClick) {
+                Image(
+                    painter = painterResource(R.drawable.ic_taskflow),
+                    contentDescription = "Groups",
+                    modifier = Modifier.size(50.dp)
+                )
+            }
+
+            IconButton(onClick = onProfileClick) {
+                Image(
+                    painter = painterResource(R.drawable.ic_profile),
+                    contentDescription = "Profile",
+                    modifier = Modifier.size(50.dp)
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun BottomNavItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(imageVector = icon, contentDescription = label)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-/**
- * 🖼 Preview용 Composable
- * - ViewModel 없이 순수 UI만 확인
- */
 @Preview(showBackground = true)
 @Composable
 private fun SettingScreenPreview() {
-    MaterialTheme { // 프로젝트 테마가 있으면 여기서 감싸도 됨 (ex. TaskFlowTheme)
+    MaterialTheme {
         SettingScreenScaffold(
             isLoading = false,
             onNavigateBack = {},
@@ -259,6 +285,9 @@ private fun SettingScreenPreview() {
             onNavigateToTheme = {},
             onNavigateToAbout = {},
             onNavigateToEtc = {},
+            onNavigateToMain = {},
+            onNavigateToGroups = {},
+            onNavigateToProfile = {},
             onLogout = {}
         )
     }
