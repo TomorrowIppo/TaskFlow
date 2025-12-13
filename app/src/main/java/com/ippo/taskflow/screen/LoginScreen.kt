@@ -115,7 +115,7 @@ private fun LoginScreenInternal(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = TaskFlowLightGreen),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(
@@ -126,7 +126,7 @@ private fun LoginScreenInternal(
                     ) {
                         // ✅ 요청사항: "환영 텍스트 위"에 로고 넣기
                         Image(
-                            painter = painterResource(id = R.drawable.ic_taskflow),
+                            painter = painterResource(id = R.drawable.ic_taskflow_logo),
                             contentDescription = "TaskFlow Logo",
                             modifier = Modifier
                                 .size(72.dp)
@@ -188,7 +188,17 @@ private fun LoginScreenInternal(
                                 )
                             },
                             isError = emailError != null,
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                disabledContainerColor = Color.White,
+                                errorContainerColor = Color.White,
+
+                                focusedBorderColor = Color.Black,
+                                unfocusedBorderColor = Color.Black,
+                                errorBorderColor = MaterialTheme.colorScheme.error
+                            )
                         )
                         if (!emailError.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
@@ -230,7 +240,17 @@ private fun LoginScreenInternal(
                             },
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             isError = passwordError != null,
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                disabledContainerColor = Color.White,
+                                errorContainerColor = Color.White,
+
+                                focusedBorderColor = Color.Black,
+                                unfocusedBorderColor = Color.Black,
+                                errorBorderColor = MaterialTheme.colorScheme.error
+                            )
                         )
                         if (!passwordError.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
