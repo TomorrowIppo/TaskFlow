@@ -47,10 +47,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.res.painterResource
+import com.ippo.taskflow.R
+import androidx.compose.ui.tooling.preview.Preview
 
 // 메인 색상들 (Figma 참고용)
 private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFFE0FFE8)
+private val TaskFlowLightGreen = Color(0xFF60FF8A)
 private val TaskCardBackground = Color(0xFFFDF9FF)
 
 @Composable
@@ -228,7 +231,7 @@ private fun ProgressDashboard(
             .fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = TaskFlowGreen
+            containerColor = TaskFlowLightGreen
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -244,7 +247,7 @@ private fun ProgressDashboard(
             ) {
                 Text(
                     text = "오늘의 Task가 거의\n완료됐어요!",
-                    color = Color.White,
+                    color = Color.Black,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -279,7 +282,7 @@ private fun ProgressDashboard(
                     modifier = Modifier.fillMaxSize(),
                     color = Color.White,
                     strokeWidth = 8.dp,
-                    trackColor = Color.White.copy(alpha = 0.2f)
+                    trackColor = Color.White.copy(alpha = 0.5f)
                 )
                 Text(
                     text = "$completionPercentage%",
@@ -447,25 +450,105 @@ private fun MainBottomNavBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             IconButton(onClick = onHomeClick) {
-                Icon(
-                    imageVector = Icons.Filled.Home,
+                Image(
+                    painter = painterResource(R.drawable.ic_home),
                     contentDescription = "Home",
-                    tint = TaskFlowGreen
+                    modifier = Modifier.size(50.dp)
                 )
             }
+
             IconButton(onClick = onGroupsClick) {
-                Icon(
-                    imageVector = Icons.Filled.Group,
+                Image(
+                    painter = painterResource(R.drawable.ic_taskflow),
                     contentDescription = "Groups",
-                    tint = Color.Black
+                    modifier = Modifier.size(50.dp)
                 )
             }
+
             IconButton(onClick = onProfileClick) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
+                Image(
+                    painter = painterResource(R.drawable.ic_profile),
                     contentDescription = "Profile",
-                    tint = Color.Black
+                    modifier = Modifier.size(50.dp)
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun MainScreenPreview_Full() {
+    // ✅ Preview용 샘플 데이터
+    val sampleTasks = listOf(
+        Task(
+            taskId = "1",
+            title = "CS 과제 제출",
+            dueDate = Date(),
+            priority = 1,
+            status = "TODO"
+        ),
+        Task(
+            taskId = "2",
+            title = "TaskFlow UI 수정",
+            dueDate = Date(),
+            priority = 2,
+            status = "DONE"
+        ),
+        Task(
+            taskId = "3",
+            title = "팀 회의 준비",
+            dueDate = Date(),
+            priority = 3,
+            status = "TODO"
+        )
+    )
+
+    // ✅ MainScreen과 동일한 레이아웃을 Preview에서 재현
+    Scaffold(
+        bottomBar = {
+            MainBottomNavBar(
+                onHomeClick = {},
+                onGroupsClick = {},
+                onProfileClick = {}
+            )
+        }
+    ) { innerPadding ->
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+
+                MainHeader(
+                    userName = "희주",
+                    photoUrl = null, // Preview에서 네트워크 이미지 피하려고 null 추천
+                    onSettingsClick = {}
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // DONE 1개 / 전체 3개 → 33%
+                ProgressDashboard(completionPercentage = 33)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "오늘의 Task",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TaskListSection(
+                    tasks = sampleTasks,
+                    isLoading = false,
+                    errorMessage = null,
+                    onTaskStatusToggle = {}
                 )
             }
         }
