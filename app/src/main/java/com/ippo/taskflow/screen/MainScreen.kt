@@ -53,8 +53,8 @@ import androidx.compose.ui.tooling.preview.Preview
 
 // 메인 색상들 (Figma 참고용)
 private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFF60FF8A)
-private val TaskCardBackground = Color(0xFFFDF9FF)
+private val TaskFlowLightGreen = Color(0xFFACFFC1)
+private val TaskCardBackground = Color(0xFF34C759)
 
 @Composable
 fun MainScreen(
@@ -231,7 +231,7 @@ private fun ProgressDashboard(
             .fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = TaskFlowLightGreen
+            containerColor = TaskCardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -247,7 +247,7 @@ private fun ProgressDashboard(
             ) {
                 Text(
                     text = "오늘의 Task가 거의\n완료됐어요!",
-                    color = Color.Black,
+                    color = Color.White,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
