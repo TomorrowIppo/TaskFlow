@@ -26,7 +26,7 @@ import com.ippo.taskflow.auth.AuthViewModel
 
 // ✅ Main/Login/Register와 동일 컬러 시스템
 private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFF60FF8A)
+private val TaskFlowLightGreen = Color(0xFFACFFC1)
 private val ScreenBg = Color(0xFFFFFFFF)
 
 @OptIn(ExperimentalMaterial3Api::class)
