@@ -24,7 +24,7 @@ import com.ippo.taskflow.auth.AuthViewModel
 
 // ✅ MainScreen과 동일 톤(팀 공통 컬러로 맞춤)
 private val TaskFlowGreen = Color(0xFF1E8A3B)
-private val TaskFlowLightGreen = Color(0xFF60FF8A)
+private val TaskFlowLightGreen = Color(0xFFACFFC1)
 private val ScreenBg = Color(0xFFFFFFFF)
 
 // 기존 캡처 기반 accent는 유지 가능
