@@ -10,6 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
 
 /**
  * 그룹 태스크 목록의 통계 정보를 담는 데이터 클래스
@@ -57,11 +61,13 @@ class TaskViewModel : ViewModel() {
 
     private var taskListener: ListenerRegistration? = null
     private var metricsListener: ListenerRegistration? = null
+    private var monthlyListener: ListenerRegistration? = null
 
     override fun onCleared() {
         super.onCleared()
         taskListener?.remove()
         metricsListener?.remove()
+        monthlyListener?.remove()
     }
 
     // C: Create Task
@@ -237,4 +243,12 @@ class TaskViewModel : ViewModel() {
         _currentFilter.value = filter
         // Firestore 쿼리 변경 없이, UI에서 _taskList에 filter를 적용하도록 유도 (컴포저블에서 Flow 연산)
     }
+    // ✅ 월간 수행률 맵 (0.0~1.0)
+    private val _monthlyCompletion = MutableStateFlow<Map<org.threeten.bp.LocalDate, Float>>(emptyMap())
+    val monthlyCompletion: StateFlow<Map<org.threeten.bp.LocalDate, Float>> = _monthlyCompletion
+
+    fun loadMonthlyCompletionForUser(assignedToUid: String, month: org.threeten.bp.YearMonth) {
+        // (전에 준 코드 본문 그대로)
+    }
+
 }

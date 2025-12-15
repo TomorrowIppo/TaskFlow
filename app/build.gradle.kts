@@ -84,4 +84,5 @@ dependencies {
     // Debugging Dependencies
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.8")
 }

@@ -4,8 +4,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
@@ -18,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,24 +28,34 @@ import com.ippo.taskflow.R
 import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme
 import com.ippo.taskflow.auth.AuthViewModel
 import com.ippo.taskflow.data.User
+import com.ippo.taskflow.task.TaskViewModel
+import org.threeten.bp.LocalDate
+import org.threeten.bp.YearMonth
 
-// ✅ Main/Login/Register와 동일 컬러 시스템
 private val TaskFlowGreen = Color(0xFF41CC67)
-private val TaskFlowLightGreen = Color(0xFF60FF8A)
+private val TaskFlowLightGreen = Color(0xFFACFFC1)
 private val ScreenBg = Color(0xFFFFFFFF)
 
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
+    taskViewModel: TaskViewModel,
     onNavigateToSettings: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
-    // ✅ 하단바 네비게이션 연결(기능 유지/확장)
     onNavigateToMain: () -> Unit = {},
     onNavigateToGroups: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
 ) {
     val userProfile by authViewModel.profile.collectAsState()
     val isLoading by authViewModel.isLoading.collectAsState()
+
+    val month = remember { YearMonth.now() }
+    val monthlyMap by taskViewModel.monthlyCompletion.collectAsState(initial = emptyMap())
+
+    LaunchedEffect(userProfile?.uid, month) {
+        val uid = userProfile?.uid ?: return@LaunchedEffect
+        taskViewModel.loadMonthlyCompletionForUser(uid, month)
+    }
 
     val error by authViewModel.error.collectAsState()
     LaunchedEffect(error) {
@@ -64,17 +77,19 @@ fun ProfileScreen(
                 .padding(paddingValues)
                 .fillMaxSize()
                 .background(ScreenBg)
-                .padding(horizontal = 16.dp, vertical = 8.dp), // ✅ Main과 동일 패딩
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             userProfile = userProfile,
             onNavigateBack = onNavigateBack,
             onEditProfileClick = onNavigateToSettings,
-            isLoading = isLoading
+            isLoading = isLoading,
+            month = month,
+            completionByDate = monthlyMap
         )
     }
 }
 
 // -------------------------------------------------------------
-// 프로필 내용 영역 (기능 유지 + UI 통일)
+// 프로필 내용 영역
 // -------------------------------------------------------------
 @Composable
 fun ProfileContent(
@@ -82,10 +97,13 @@ fun ProfileContent(
     userProfile: User?,
     onNavigateBack: () -> Unit,
     onEditProfileClick: () -> Unit,
-    isLoading: Boolean
+    isLoading: Boolean,
+    month: YearMonth,
+    completionByDate: Map<LocalDate, Float>
 ) {
-    Column(modifier = modifier) {
-        // ✅ Main/Login/Register와 동일 헤더 패턴
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState())
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -107,10 +125,9 @@ fun ProfileContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 로딩 처리 (기존 기능 유지)
         if (isLoading && userProfile == null) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
@@ -119,11 +136,9 @@ fun ProfileContent(
         }
 
         val displayName = userProfile?.name ?: "Guest User"
-        val statusMessage = userProfile?.statusMsg ?: "상태 메시지를 설정해주세요."
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ✅ 프로필 상세 카드 (Main의 리스트 카드 톤)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
@@ -136,11 +151,6 @@ fun ProfileContent(
                     .padding(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 프로필 이미지(기존 컴포넌트 유지 - placeholder는 프로젝트에 있을 때만)
-                // 없으면 아래 기본 아바타 박스만 써도 됨.
-                // ProfileImage(imageResId = R.drawable.profile_placeholder, contentDescription = "사용자 프로필 사진")
-
-                // ✅ 리소스 없는 상태에서도 깨지지 않게 기본 아바타 제공
                 Box(
                     modifier = Modifier
                         .size(120.dp)
@@ -158,7 +168,6 @@ fun ProfileContent(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ✅ 편집 버튼 (기능 유지) - Main/Login 버튼 톤
                 Button(
                     onClick = onEditProfileClick,
                     modifier = Modifier
@@ -185,6 +194,16 @@ fun ProfileContent(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // ✅ 월간 수행률 히트맵
+        MonthlyTaskHeatmapCard(
+            month = month,
+            completionByDate = completionByDate
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
     }
 }
 
@@ -261,7 +280,123 @@ private fun MainBottomNavBar(
 }
 
 // -------------------------------------------------------------
-// Preview (기존 요구: 먼저 프리뷰 보고 싶음)
+// Heatmap UI (파일 내 포함 버전)
+// -------------------------------------------------------------
+@Composable
+fun MonthlyTaskHeatmapCard(
+    month: YearMonth,
+    completionByDate: Map<LocalDate, Float>,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Text(
+                text = "${month.month.name.take(3)} ${month.year}",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            MonthlyTaskHeatmapGrid(
+                month = month,
+                completionByDate = completionByDate
+            )
+        }
+    }
+}
+
+@Composable
+private fun MonthlyTaskHeatmapGrid(
+    month: YearMonth,
+    completionByDate: Map<LocalDate, Float>
+) {
+    val firstDay = month.atDay(1)
+    val daysInMonth = month.lengthOfMonth()
+    val firstDowIndex = ((firstDay.dayOfWeek.value + 6) % 7) // MON=0 ... SUN=6
+
+    val weekLabels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            weekLabels.forEach { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                    color = Color.Gray,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val totalCells = firstDowIndex + daysInMonth
+        val rows = ((totalCells + 6) / 7)
+
+        var dayNum = 1
+
+        repeat(rows) { row ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                repeat(7) { col ->
+                    val cellIndex = row * 7 + col
+                    val isEmpty = cellIndex < firstDowIndex || dayNum > daysInMonth
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isEmpty) {
+                            DayDot(Color.Transparent)
+                        } else {
+                            val date = month.atDay(dayNum)
+                            val rate = completionByDate[date] ?: -1f
+                            DayDot(rateToColor(rate))
+                            dayNum++
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayDot(color: Color) {
+    Box(
+        modifier = Modifier
+            .size(18.dp)
+            .clip(CircleShape)
+            .background(color)
+    )
+}
+
+private fun rateToColor(rate: Float): Color {
+    return when {
+        rate < 0f -> Color.LightGray.copy(alpha = 0.25f) // 데이터 없음
+        rate < 0.25f -> Color.LightGray.copy(alpha = 0.45f)
+        rate < 0.50f -> Color(0xFFFFE08A)
+        rate < 0.75f -> Color(0xFFFFC24A)
+        rate < 1.0f -> Color(0xFF9EF3A8)
+        else -> TaskFlowGreen
+    }
+}
+
+// -------------------------------------------------------------
+// Preview
 // -------------------------------------------------------------
 @Preview(showBackground = true)
 @Composable
@@ -289,8 +424,25 @@ fun ProfileScreenPreview_Full() {
                 ),
                 onNavigateBack = {},
                 onEditProfileClick = {},
-                isLoading = false
+                isLoading = false,
+                month = YearMonth.now(),
+                completionByDate = previewHeatMapStrong()
             )
         }
     }
+}
+
+private fun previewHeatMapStrong(): Map<LocalDate, Float> {
+    val ym = YearMonth.now()
+    return mapOf(
+        ym.atDay(1) to 1.0f,
+        ym.atDay(2) to 1.0f,
+        ym.atDay(3) to 0.7f,
+        ym.atDay(4) to 0.4f,
+        ym.atDay(5) to 0.2f,
+        ym.atDay(6) to 1.0f,
+        ym.atDay(9) to 0.9f,
+        ym.atDay(12) to 0.6f,
+        ym.atDay(18) to 1.0f
+    )
 }
