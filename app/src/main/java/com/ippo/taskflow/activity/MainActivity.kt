@@ -262,14 +262,12 @@ fun MainAppNavHost(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToAddTask = {
                         // Task 생성 화면으로 이동 시, 현재 GroupId를 함께 전달해야 함
-                        // Destinations.ADD_TASK_ROUTE는 실제 구현에 따라 경로가 달라질 수 있습니다.
                         navController.navigate("${Destinations.ADD_TASK_ROUTE}/$groupId")
                     },
 
                     // ⭐️ 추가된 콜백: Task ID를 받아 Task 상세 화면으로 이동합니다.
                     onNavigateToTaskDetail = { taskId ->
                         // Task 상세 화면 경로로 네비게이션합니다.
-                        // Destinations.TASK_DETAIL_ROUTE는 반드시 taskId를 경로 인자로 포함해야 합니다.
                         navController.navigate("${Destinations.TASK_DETAIL_ROUTE}/$taskId")
                     }
                 )
