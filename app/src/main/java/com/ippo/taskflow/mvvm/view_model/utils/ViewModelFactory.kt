@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
+import com.ippo.taskflow.mvvm.view_model.notification.NotificationViewModel
 
 class ViewModelFactory(
     private val authViewModel: AuthViewModel,
@@ -16,6 +17,11 @@ class ViewModelFactory(
         if (modelClass.isAssignableFrom(GroupViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
             return GroupViewModel(authViewModel, taskViewModel) as T
+        }
+
+        if (modelClass.isAssignableFrom(NotificationViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return NotificationViewModel() as T
         }
 
         // 🚨 이 팩토리가 생성할 수 없는 다른 ViewModel 요청이 들어오면 오류를 반환합니다.

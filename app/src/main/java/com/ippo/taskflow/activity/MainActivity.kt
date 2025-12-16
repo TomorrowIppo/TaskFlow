@@ -216,12 +216,32 @@ fun MainAppNavHost(
             SettingScreen(
                 authViewModel = authViewModel,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToLogin = { authViewModel.signOut() }, // 로그아웃 시 AuthNavHost로 전환됨
-                onNavigateToProfileSetting = { navController.navigate(Destinations.PROFILE_SETTING_ROUTE) },
+                onNavigateToLogin = { authViewModel.signOut() },
+
+                onNavigateToProfileSetting = {
+                    navController.navigate(Destinations.PROFILE_SETTING_ROUTE)
+                },
                 onNavigateToSecurity = { /* TODO */ },
                 onNavigateToTheme = { /* TODO */ },
                 onNavigateToAbout = { /* TODO */ },
-                onNavigateToEtc = { /* TODO */ }
+                onNavigateToEtc = { /* TODO */ },
+
+                // ✅ 추가된 하단 네비게이션 연결
+                onNavigateToMain = {
+                    navController.navigate(Destinations.HOME_ROUTE) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToGroups = {
+                    navController.navigate(Destinations.GROUPS_ROUTE) {
+                        launchSingleTop = true
+                    }
+                },
+                onNavigateToProfile = {
+                    navController.navigate(Destinations.PROFILE_ROUTE) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 
