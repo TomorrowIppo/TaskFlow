@@ -215,6 +215,7 @@ fun MainAppNavHost(
                     EditTaskScreen(
                         taskId = tid,
                         taskViewModel = taskViewModel,
+                        groupViewModel = groupViewModel,
                         onTaskUpdated = {
                             navController.popBackStack()
                         },
