@@ -6,8 +6,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +22,6 @@ import com.ippo.taskflow.activity.ui.theme.AccentBlue
 import com.ippo.taskflow.activity.ui.theme.LightGreyBackground
 import com.ippo.taskflow.activity.ui.theme.PrimaryGreen
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,7 +53,6 @@ fun ProfileSettingScreen(
             snackbarHostState.showSnackbar("프로필 업데이트 실패: $error")
             authViewModel.clearError()
         } else if (!isProfileUpdating && error == null && profile != null) {
-            // 저장 성공 알림 (데이터 변경 없음이 확인되면 알림)
             if (nameState == profile!!.name.orEmpty() && statusMsgState == profile!!.statusMsg.orEmpty()) {
                 snackbarHostState.showSnackbar("프로필 정보가 저장되었습니다.")
             }
@@ -63,7 +61,6 @@ fun ProfileSettingScreen(
 
     val isDataModified = remember(nameState, statusMsgState, profile) {
         if (profile == null) return@remember false
-        // profile이 non-null일 때 안전하게 비교
         nameState != (profile?.name.orEmpty()) || statusMsgState != (profile?.statusMsg.orEmpty())
     }
 
@@ -89,7 +86,11 @@ fun ProfileSettingScreen(
                 title = { Text("Profile Setting", color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기", tint = Color.Black)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "뒤로가기",
+                            tint = Color.Black
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -97,27 +98,29 @@ fun ProfileSettingScreen(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { SimpleBottomNavBar() }
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+        // ✅ [수정] bottomBar 제거: 전역 BottomNav(TaskFlowBottomNavBar)는 MainActivity에서만 관리
+        // profileSetting route는 shouldShowBottomBar()에서 숨김 처리
     ) { padding ->
 
-        // 🚨 **[CRITICAL FIX]** 로딩 및 Null 체크
+        // 🚨 로딩 및 Null 체크
         if (currentUser == null) {
-            // 로그인되어 있지 않으면 로그인 화면으로 이동
             LaunchedEffect(Unit) { onSignedOut() }
             return@Scaffold
         }
 
         if (profile == null) {
-            // 프로필 정보 로딩 중 표시
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
             return@Scaffold
         }
-        // 로딩 완료 -> 이 시점부터 profile은 non-null 보장
 
-        // --- 3. UI 콘텐츠 시작 ---
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -125,7 +128,7 @@ fun ProfileSettingScreen(
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- 1. 프로필 이미지 ---
+            // 프로필 이미지
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -136,7 +139,7 @@ fun ProfileSettingScreen(
             }
             Spacer(modifier = Modifier.height(48.dp))
 
-            // --- 2. 별명 (닉네임) 입력 필드 ---
+            // 별명 입력
             Text("별명", modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(4.dp))
             CustomTextField(
@@ -146,7 +149,7 @@ fun ProfileSettingScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- 3. 상태 메시지 입력 필드 ---
+            // 상태 메시지 입력
             Text("상태메시지", modifier = Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(4.dp))
             CustomTextField(
@@ -158,12 +161,11 @@ fun ProfileSettingScreen(
             )
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- 4. 저장 / 취소 버튼 그룹 ---
+            // 저장 / 취소 버튼
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
             ) {
-                // 4-1. 저장 버튼
                 ActionButton(
                     text = "저장",
                     icon = Icons.Default.Check,
@@ -172,7 +174,6 @@ fun ProfileSettingScreen(
                     enabled = isDataModified && !isProfileUpdating
                 )
                 Spacer(modifier = Modifier.width(16.dp))
-                // 4-2. 취소 버튼
                 ActionButton(
                     text = "취소",
                     icon = Icons.Default.Close,
@@ -186,7 +187,7 @@ fun ProfileSettingScreen(
     }
 }
 
-// 캡처본 스타일의 입력 필드
+// 입력 필드
 @Composable
 private fun CustomTextField(
     value: String,
@@ -215,7 +216,7 @@ private fun CustomTextField(
     )
 }
 
-// 캡처본 스타일의 저장/취소 버튼
+// 저장/취소 버튼
 @Composable
 private fun ActionButton(
     text: String,
@@ -242,7 +243,10 @@ private fun ActionButton(
     }
 }
 
-// 캡처본 스타일의 하단 네비게이션 바
+/**
+ * (기존 코드 유지) 캡처본 스타일의 하단 네비게이션 바
+ * - 현재 Screen에서는 사용하지 않음 (전역 바로 통합)
+ */
 @Composable
 private fun SimpleBottomNavBar() {
     val NavBarColor = Color(0xFFB9F6CA)
@@ -262,19 +266,16 @@ private fun SimpleBottomNavBar() {
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 첫 번째 아이콘 (집 모양)
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .background(NavItemColor, CircleShape)
             )
-            // 두 번째 아이콘 (큐브 모양 - 중앙)
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .background(NavItemColor, RoundedCornerShape(8.dp))
             )
-            // 세 번째 아이콘 (클로버 모양)
             Box(
                 modifier = Modifier
                     .size(32.dp)
