@@ -45,7 +45,7 @@ fun ProfileScreen(
     val userProfile by authViewModel.profile.collectAsState()
     val isLoading by authViewModel.isLoading.collectAsState()
 
-    // ✅ 프로필 달력/팝업용 전체 Task
+    // 프로필 달력/팝업용 전체 Task
     val tasks by taskViewModel.profileTasks.collectAsState()
 
     val groups by groupViewModel.groupList.collectAsState()
@@ -55,14 +55,14 @@ fun ProfileScreen(
         if (error != null) authViewModel.clearError()
     }
 
-    // ✅ 프로필 진입 시: 전체 Task + 내 그룹 목록 로드
+    // 프로필 진입 시: 전체 Task + 내 그룹 목록 로드
     LaunchedEffect(userProfile?.uid) {
         val uid = userProfile?.uid ?: return@LaunchedEffect
         taskViewModel.loadMyAssignedAllTasks(uid)
         groupViewModel.loadGroups()
     }
 
-    // ✅ groupId -> groupName 맵
+    // groupId -> groupName 맵
     val groupNameMap = remember(groups) {
         groups.associate { it.groupId to it.name }
     }
@@ -75,7 +75,7 @@ fun ProfileScreen(
             modifier = Modifier.padding(paddingValues),
             userProfile = userProfile,
             tasks = tasks,
-            groupNameMap = groupNameMap,                 // ✅ 추가
+            groupNameMap = groupNameMap,
             onEditProfileClick = onNavigateToSettings,
             isLoading = isLoading
         )
@@ -113,7 +113,7 @@ fun ProfileContent(
     modifier: Modifier = Modifier,
     userProfile: User?,
     tasks: List<Task>,
-    groupNameMap: Map<String, String>,               // ✅ 추가
+    groupNameMap: Map<String, String>,
     onEditProfileClick: () -> Unit,
     isLoading: Boolean
 ) {
@@ -166,7 +166,7 @@ fun ProfileContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // ✅ 달력 (날짜 클릭 → 팝업)
+        // 달력 (날짜 클릭 → 팝업)
         ProfileTaskCalendar(
             tasks = tasks,
             modifier = Modifier.fillMaxWidth(),
@@ -175,7 +175,7 @@ fun ProfileContent(
             }
         )
 
-        // ✅ 날짜 클릭 팝업
+        // 날짜 클릭 팝업
         selectedYmd?.let { (y, m0, d) ->
             val dayTasks = remember(tasks, y, m0, d) {
                 tasks.filter { t ->
@@ -245,7 +245,7 @@ private fun DayTaskRow(
                 color = Color.Gray
             )
             Text(
-                text = "그룹: $groupName",  // ✅ groupId -> groupName
+                text = "그룹: $groupName",  //groupId -> groupName
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray,
                 maxLines = 1,

@@ -83,7 +83,7 @@ fun ProfileTaskCalendar(
                         if (cellIndex < startOffset || day > daysInMonth) {
                             Spacer(modifier = Modifier.weight(1f).height(42.dp))
                         } else {
-                            val cellDay = day // ✅ 핵심: 클릭/필터에서 쓸 날짜를 고정 캡처
+                            val cellDay = day // 클릭/필터에서 쓸 날짜를 고정 캡처
 
                             val dayTasks = tasks.filter { t ->
                                 val due = t.dueDate ?: return@filter false
@@ -100,7 +100,7 @@ fun ProfileTaskCalendar(
                                 isToday = (cellDay == todayDay),
                                 completionRate = completionRate,
                                 modifier = Modifier.weight(1f),
-                                onClick = { onDayClick(year, month0, cellDay) } // ✅ day -> cellDay
+                                onClick = { onDayClick(year, month0, cellDay) } // day -> cellDay
                             )
 
                             day++

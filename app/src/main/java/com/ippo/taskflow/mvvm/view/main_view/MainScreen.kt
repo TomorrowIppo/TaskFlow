@@ -40,7 +40,7 @@ import java.util.Locale
 fun MainScreen(
     authViewModel: AuthViewModel,
     taskViewModel: TaskViewModel,
-    groupViewModel: GroupViewModel, // ✅ 추가: groupName 표시용
+    groupViewModel: GroupViewModel, // 추가: groupName 표시용
     onNavigateToSettings: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToGroups: () -> Unit,
@@ -69,8 +69,8 @@ fun MainScreen(
     // 2) 내 그룹 목록 로드 (groupId -> name 표시용)
     LaunchedEffect(uid) {
         if (!uid.isNullOrBlank()) {
-            taskViewModel.loadMyAssignedTasks(uid)  // ✅ 3번 로직(오늘 범위)
-            groupViewModel.loadGroups()             // ✅ 4번 로직(그룹명 표시)
+            taskViewModel.loadMyAssignedTasks(uid)
+            groupViewModel.loadGroups()
         }
     }
 
@@ -84,7 +84,7 @@ fun MainScreen(
     // 사진 URL (없으면 null → 기본 아바타 렌더링)
     val photoUrl = firebaseUser?.photoUrl?.toString()
 
-    // ✅ groupId -> groupName 빠른 조회용 Map
+    // groupId -> groupName 빠른 조회용 Map
     val groupNameMap = remember(groupList) {
         groupList.associate { it.groupId to it.name }
     }
@@ -101,6 +101,7 @@ fun MainScreen(
                 MainHeader(
                     userName = userName,
                     photoUrl = photoUrl,
+                    statusMessage = profile?.statusMsg,
                     onSettingsClick = onNavigateToSettings
                 )
 
@@ -143,7 +144,7 @@ fun MainScreen(
                     tasks = taskList,
                     isLoading = isLoadingTasks,
                     errorMessage = taskError,
-                    groupNameMap = groupNameMap, // ✅ 추가
+                    groupNameMap = groupNameMap,
                     onTaskClick = { taskId -> onNavigateToEditTask(taskId) },
                     onTaskStatusToggle = { task ->
                         val newStatus =
@@ -159,6 +160,7 @@ fun MainScreen(
 @Composable
 private fun MainHeader(
     userName: String,
+    statusMessage: String?,
     photoUrl: String?,
     onSettingsClick: () -> Unit,
 ) {
@@ -192,9 +194,11 @@ private fun MainHeader(
 
             Column {
                 Text(
-                    text = "안녕!",
+                    text = statusMessage?.takeIf { it.isNotBlank() } ?: "오늘도 화이팅!",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = userName,
@@ -308,7 +312,7 @@ private fun TaskListSection(
     tasks: List<Task>,
     isLoading: Boolean,
     errorMessage: String?,
-    groupNameMap: Map<String, String>, // ✅ 추가
+    groupNameMap: Map<String, String>,
     onTaskClick: (String) -> Unit,
     onTaskStatusToggle: (Task) -> Unit,
 ) {
@@ -351,7 +355,7 @@ private fun TaskListSection(
 
             TaskCard(
                 task = task,
-                groupName = groupName, // ✅ 추가
+                groupName = groupName,
                 onClick = { onTaskClick(task.taskId) },
                 onToggleStatus = { onTaskStatusToggle(task) }
             )
@@ -362,7 +366,7 @@ private fun TaskListSection(
 @Composable
 private fun TaskCard(
     task: Task,
-    groupName: String, // ✅ 추가
+    groupName: String,
     onClick: () -> Unit,
     onToggleStatus: () -> Unit,
 ) {
@@ -399,7 +403,7 @@ private fun TaskCard(
                 val dueText = formatDueDate(task.dueDate)
                 val priorityText = "우선순위 ${task.priority}"
 
-                // ✅ 그룹명 + due + priority
+                // 그룹명 + due + priority
                 val meta = listOfNotNull(
                     groupName.takeIf { it.isNotBlank() },
                     dueText,

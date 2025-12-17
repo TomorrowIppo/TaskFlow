@@ -101,7 +101,7 @@ class TaskViewModel : ViewModel() {
         _error.value = null
     }
 
-    // ✅ 단일 Task 실시간 로드 (EditTaskScreen 안정화 핵심)
+    // 단일 Task 실시간 로드 (EditTaskScreen 안정화 핵심)
     fun loadTaskById(taskId: String) {
         if (taskId.isBlank()) return
 
@@ -229,7 +229,7 @@ class TaskViewModel : ViewModel() {
             }
     }
 
-    // ✅ 그룹별 통계 구독 (GroupTaskScreen용)
+    // 그룹별 통계 구독 (GroupTaskScreen용)
     fun observeGroupMetrics(groupId: String): StateFlow<TaskMetrics> {
         if (groupId.isBlank()) return MutableStateFlow(TaskMetrics())
 
@@ -291,7 +291,7 @@ class TaskViewModel : ViewModel() {
             }
     }
 
-    // ✅ Update Task (Edit 저장)
+    // Update Task (Edit 저장)
     fun updateTask(task: Task) {
         _isLoading.value = true
         _error.value = null
