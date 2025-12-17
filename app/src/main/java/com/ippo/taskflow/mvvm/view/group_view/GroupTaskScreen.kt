@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
@@ -18,9 +19,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,7 +41,6 @@ import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.model.Group
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
-
 
 @Composable
 fun GroupTaskScreen(
@@ -87,7 +89,6 @@ fun GroupTaskScreen(
                 // "내 그룹" 헤더 + 새 그룹 텍스트 버튼
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -97,26 +98,20 @@ fun GroupTaskScreen(
                             fontSize = 18.sp
                         )
                     )
-                    Text(
-                        text = "+ 새 그룹",
-                        color = TaskFlowGreen,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        modifier = Modifier.clickable { onNavigateToAddGroup() }
-                    )
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    TextButton(onClick =onNavigateToAddGroup) {
+                        Text(
+                            text = "+ 새 그룹",
+                            color = TaskFlowGreen,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // 에러 표시
-                if (!errorMessage.isNullOrBlank()) {
-                    Text(
-                        text = errorMessage!!,
-                        color = Color.Red,
-                        fontSize = 12.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
 
                 // 그룹 목록 + "새로운 그룹 만들기" 카드
                 GroupListSection(
@@ -127,6 +122,15 @@ fun GroupTaskScreen(
                     },
                     onAddGroupClick = onNavigateToAddGroup
                 )
+                // 에러 표시
+                if (!errorMessage.isNullOrBlank()) {
+                    Text(
+                        text = errorMessage!!,
+                        color = Color.Red,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
         }
     }
@@ -144,7 +148,7 @@ private fun GroupTopBar(
     ) {
         IconButton(onClick = onBackClick) {
             Icon(
-                imageVector = Icons.Default.ArrowBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "뒤로가기"
             )
         }
@@ -164,36 +168,39 @@ private fun GroupListSection(
     onGroupClick: (String) -> Unit,
     onAddGroupClick: () -> Unit,
 ) {
-    if (isLoading) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "그룹 목록을 불러오는 중...", color = Color.Gray)
-        }
-        return
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 96.dp)
-    ) {
-        items(groups, key = { it.groupId }) { group ->
-            GroupCard(
-                group = group,
-                onClick = { onGroupClick(group.groupId) }
-            )
+    when {
+        isLoading -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "그룹 목록을 불러오는 중...",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
-        // 하단 "새로운 그룹 만들기" 카드
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            AddGroupCard(
-                onClick = onAddGroupClick
-            )
+        else -> {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 96.dp)
+            ) {
+                items(groups, key = { it.groupId }) { group ->
+                    GroupCard(
+                        group = group,
+                        onClick = { onGroupClick(group.groupId) }
+                    )
+                }
+
+                // 그룹 생성을 위한 고정 액션 카드
+                item {
+                    AddGroupCard(onClick = onAddGroupClick)
+                }
+            }
         }
     }
 }
@@ -267,13 +274,14 @@ private fun GroupCard(
 
             // 진행률 바
             LinearProgressIndicator(
-                progress = completionRatio,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(50)),
-                color = TaskFlowGreen,
-                trackColor = Color(0xFFE5E5E5)
+            progress = { completionRatio },
+            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50)),
+            color = TaskFlowGreen,
+            trackColor = Color(0xFFE5E5E5),
+            strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -304,7 +312,7 @@ private fun AddGroupCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -336,7 +344,7 @@ private fun AddGroupCard(
                 Text(
                     text = "새로운 그룹 만들기",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF7A7A7A)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
             }

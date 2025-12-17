@@ -46,7 +46,6 @@ import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.model.TaskStatus
 
-
 @Composable
 fun MainScreen(
     authViewModel: AuthViewModel,
