@@ -26,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import com.ippo.taskflow.activity.ui.theme.TaskFlowTheme
 import com.ippo.taskflow.mvvm.view.group_view.AddGroupScreen
 import com.ippo.taskflow.mvvm.view.group_view.AddTaskScreen
+import com.ippo.taskflow.mvvm.view.group_view.EditTaskScreen // ✅ 추가
 import com.ippo.taskflow.mvvm.view.group_view.GroupDetailScreen
 import com.ippo.taskflow.mvvm.view.group_view.GroupTaskScreen
 import com.ippo.taskflow.mvvm.view.init_view.FirstScreen
@@ -63,6 +64,9 @@ object Destinations {
     const val TASK_DETAIL_ROUTE = "taskDetail/{taskId}"
 
     fun groupDetailRoute(groupId: String) = "groupDetail/$groupId"
+
+    // ✅ 추가: EditTask 인자 전달 함수
+    fun editTaskRoute(taskId: String) = "editTask/$taskId"
 }
 
 class MainActivity : ComponentActivity() {
@@ -80,10 +84,7 @@ class MainActivity : ComponentActivity() {
 
                     // 🚨 GroupViewModel은 Custom Factory를 통해 생성 (DI 해결)
                     val groupViewModelFactory = remember {
-                        ViewModelFactory(
-                            authViewModel,
-                            taskViewModel
-                        )
+                        ViewModelFactory(authViewModel, taskViewModel)
                     }
                     val groupViewModel: GroupViewModel = viewModel(factory = groupViewModelFactory)
 

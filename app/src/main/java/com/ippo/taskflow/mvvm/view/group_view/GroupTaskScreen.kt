@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +43,7 @@ import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 @Composable
 fun GroupTaskScreen(
     groupViewModel: GroupViewModel,
+    taskViewModel: TaskViewModel, // ✅ 추가 (TODO 구현용)
     onNavigateToMain: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToAddGroup: () -> Unit,
@@ -110,6 +112,7 @@ fun GroupTaskScreen(
                 GroupListSection(
                     groups = groupList,
                     isLoading = isLoading,
+                    taskViewModel = taskViewModel, // ✅ 추가 (TODO 구현용)
                     onGroupClick = { groupId ->
                         onNavigateToGroupDetail(groupId)
                     },
@@ -149,6 +152,7 @@ private fun GroupTopBar(
 private fun GroupListSection(
     groups: List<Group>,
     isLoading: Boolean,
+    taskViewModel: TaskViewModel, // ✅ 추가 (TODO 구현용)
     onGroupClick: (String) -> Unit,
     onAddGroupClick: () -> Unit,
 ) {
@@ -170,8 +174,21 @@ private fun GroupListSection(
         contentPadding = PaddingValues(bottom = 96.dp)
     ) {
         items(groups, key = { it.groupId }) { group ->
+
+            // ✅ TODO 구현: groupId별 TaskMetrics를 ViewModel에서 observe
+            val metricsFlow = remember(group.groupId) {
+                taskViewModel.observeGroupMetrics(group.groupId)
+            }
+            val metrics by metricsFlow.collectAsState()
+
+            val inProgressCount = metrics.inProgress
+            val completionRatio =
+                if (metrics.total == 0) 0f else metrics.done.toFloat() / metrics.total.toFloat()
+
             GroupCard(
                 group = group,
+                inProgressCount = inProgressCount,       // ✅ TODO 해결
+                completionRatio = completionRatio,       // ✅ TODO 해결
                 onClick = { onGroupClick(group.groupId) }
             )
         }
@@ -188,6 +205,8 @@ private fun GroupListSection(
 @Composable
 private fun GroupCard(
     group: Group,
+    inProgressCount: Int,   // ✅ TODO 해결(외부 주입)
+    completionRatio: Float, // ✅ TODO 해결(외부 주입)
     onClick: () -> Unit,
 ) {
     val memberCount = group.memberUids.size

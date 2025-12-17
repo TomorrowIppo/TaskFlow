@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarToday
@@ -30,7 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.ippo.taskflow.activity.ui.theme.InputBackground
 import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.mvvm.model.Task
-import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
+import com.ippo.taskflow.mvvm.model.TaskStatus
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -38,75 +37,64 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun AddTaskScreen(
-    initialGroupId: String,
+fun EditTaskScreen(
+    taskId: String,
     taskViewModel: TaskViewModel,
-    groupViewModel: GroupViewModel,
-    onTaskCreated: () -> Unit,
-    onNavigateBack: () -> Unit,
+    onTaskUpdated: () -> Unit,
+    onNavigateBack: () -> Unit
 ) {
-    // ---- ViewModel state observe ----
-    val groupList by groupViewModel.groupList.collectAsState()
-    val isGroupLoading by groupViewModel.isLoading.collectAsState()
-    val groupError by groupViewModel.error.collectAsState()
+    val isLoading by taskViewModel.isLoading.collectAsState()
+    val error by taskViewModel.error.collectAsState()
+    val currentTask by taskViewModel.selectedTask.collectAsState()
 
-    val isTaskLoading by taskViewModel.isLoading.collectAsState()
-    val taskError by taskViewModel.error.collectAsState()
+    // ✅ 화면 진입 시 단일 Task 로드 (taskList 의존 제거)
+    LaunchedEffect(taskId) {
+        taskViewModel.loadTaskById(taskId)
+        taskViewModel.clearError()
+    }
 
-    // ✅ 선행 Task 후보 목록
-    val currentGroupTasks by taskViewModel.taskList.collectAsState()
+    // ---- Local UI state (Task 로드 후 1회만 세팅) ----
+    var initialized by rememberSaveable(taskId) { mutableStateOf(false) }
 
-    // ---- Local UI state ----
-    var taskName by rememberSaveable { mutableStateOf("") }
-    var taskDescription by rememberSaveable { mutableStateOf("") }
+    var title by rememberSaveable(taskId) { mutableStateOf("") }
+    var description by rememberSaveable(taskId) { mutableStateOf("") }
 
-    var selectedGroupId by rememberSaveable { mutableStateOf(initialGroupId) }
-    var selectedGroupName by rememberSaveable { mutableStateOf("Task 그룹을 선택하세요") }
-    var isGroupDropdownExpanded by rememberSaveable { mutableStateOf(false) }
+    var selectedPriority by rememberSaveable(taskId) { mutableStateOf(2) }
+    var expandedPriority by rememberSaveable(taskId) { mutableStateOf(false) }
 
-    // ✅ 우선순위/선행Task 상태
-    var selectedPriority by rememberSaveable { mutableStateOf(2) } // 기본 2
-    var expandedPriority by rememberSaveable { mutableStateOf(false) }
+    var selectedStatus by rememberSaveable(taskId) { mutableStateOf(TaskStatus.TODO) }
+    var expandedStatus by rememberSaveable(taskId) { mutableStateOf(false) }
 
-    var selectedPrecursorTask by rememberSaveable { mutableStateOf<Task?>(null) }
-    var expandedPrecursor by rememberSaveable { mutableStateOf(false) }
+    var selectedPrecursorTaskId by rememberSaveable(taskId) { mutableStateOf<String?>(null) }
+    var expandedPrecursor by rememberSaveable(taskId) { mutableStateOf(false) }
 
-    // ✅ Date/Time (너가 원하는 컴포넌트 패턴 사용)
-    var selectedDate by rememberSaveable { mutableStateOf<Date?>(null) }
-    var selectedTime by rememberSaveable { mutableStateOf<Date?>(null) }
+    var selectedDate by rememberSaveable(taskId) { mutableStateOf<Date?>(null) }
+    var selectedTime by rememberSaveable(taskId) { mutableStateOf<Date?>(null) }
 
-    // 최종 dueDate (기존 방식 유지)
+    // 폼 초기 세팅(딱 1번)
+    LaunchedEffect(currentTask) {
+        val t = currentTask ?: return@LaunchedEffect
+        if (!initialized) {
+            title = t.title
+            description = t.description
+            selectedPriority = t.priority
+            selectedStatus = t.status
+            selectedDate = t.dueDate
+            selectedTime = t.dueDate
+            selectedPrecursorTaskId = t.precursorTaskId
+            initialized = true
+        }
+    }
+
+    // 최종 dueDate 계산 (AddTaskScreen 방식 유지)
     val finalDueDate = selectedDate?.let { date ->
         selectedTime?.let { time ->
-            // Date ctor deprecated이긴 한데, 너도 “나중에 수정 예정”이라고 했으니 우선 유지
             Date(date.year, date.month, date.date, time.hours, time.minutes)
         } ?: date
     }
 
-    // 초기 groupName 세팅
-    LaunchedEffect(groupList, initialGroupId) {
-        val initialGroup = groupList.find { it.groupId == initialGroupId }
-        if (initialGroup != null) {
-            selectedGroupName = initialGroup.name
-        }
-    }
+    val isSaveEnabled = title.isNotBlank() && currentTask != null && !isLoading
 
-    // ✅ 최초 진입 시: initialGroupId의 Task를 로드해서 선행 Task 드롭다운에 사용
-    LaunchedEffect(initialGroupId) {
-        taskViewModel.loadTasks(initialGroupId)
-    }
-
-    // ✅ 그룹을 바꾸면 해당 그룹 task도 로드해서 선행 후보 갱신
-    LaunchedEffect(selectedGroupId) {
-        if (selectedGroupId.isNotBlank()) {
-            taskViewModel.loadTasks(selectedGroupId)
-            selectedPrecursorTask = null // 그룹 바뀌면 선행 선택 초기화(안전)
-        }
-    }
-
-    val isCreateEnabled = taskName.isNotBlank() && selectedGroupId.isNotBlank()
-
-    // ✅ bottomBar 관련 수정 없음 (MainActivity에서 이 route는 bottomBar 숨김 대상)
     Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
@@ -129,7 +117,7 @@ fun AddTaskScreen(
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "뒤로가기")
                     }
                     Text(
-                        text = "새로운 Task 추가하기",
+                        text = "Task 수정하기",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
@@ -139,30 +127,40 @@ fun AddTaskScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Task 이름
+                if (currentTask == null && !isLoading) {
+                    Text(
+                        text = "Task 정보를 불러올 수 없습니다.",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = onNavigateBack) { Text("뒤로가기") }
+                    return@Column
+                }
+
+                // 제목
                 Text(
                     text = "Task 이름",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 TaskFlowInputBox(
-                    value = taskName,
-                    onValueChange = { taskName = it },
+                    value = title,
+                    onValueChange = { title = it },
                     placeholder = "Task 이름을 입력하세요.",
                     singleLine = true
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Task 설명
+                // 설명
                 Text(
                     text = "설명",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 TaskFlowInputBox(
-                    value = taskDescription,
-                    onValueChange = { taskDescription = it },
+                    value = description,
+                    onValueChange = { description = it },
                     placeholder = "Task 설명을 입력하세요.",
                     singleLine = false,
                     minHeight = 100.dp
@@ -170,13 +168,12 @@ fun AddTaskScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ✅ 날짜 / 시간 (컴포넌트화 + 클릭 안정화 방식)
+                // 날짜/시간
                 Text(
                     text = "날짜 / 시간",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -195,58 +192,51 @@ fun AddTaskScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Task 그룹 드롭다운 (원래 UI 유지)
+                // 상태
                 Text(
-                    text = "Task 그룹",
+                    text = "상태",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(modifier = Modifier.height(6.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(InputBackground)
-                        .clickable(enabled = groupList.isNotEmpty()) { isGroupDropdownExpanded = true }
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = selectedStatus.value,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "상태 선택",
+                                modifier = Modifier.rotate(if (expandedStatus) 180f else 0f)
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = selectedGroupName,
-                            color = if (selectedGroupId.isNotBlank()) Color.Black else Color.Gray
-                        )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = "그룹 선택", tint = Color.Gray)
-                    }
-
+                    )
+                    Spacer(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { expandedStatus = true }
+                    )
                     DropdownMenu(
-                        expanded = isGroupDropdownExpanded,
-                        onDismissRequest = { isGroupDropdownExpanded = false }
+                        expanded = expandedStatus,
+                        onDismissRequest = { expandedStatus = false }
                     ) {
-                        when {
-                            isGroupLoading -> DropdownMenuItem(text = { Text("그룹 로딩 중...") }, onClick = {})
-                            !groupError.isNullOrBlank() -> DropdownMenuItem(text = { Text("그룹 로드 실패: $groupError") }, onClick = {})
-                            groupList.isEmpty() -> DropdownMenuItem(text = { Text("가입된 그룹이 없습니다.") }, onClick = {})
-                            else -> groupList.forEach { group ->
-                                DropdownMenuItem(
-                                    text = { Text(group.name) },
-                                    onClick = {
-                                        selectedGroupId = group.groupId
-                                        selectedGroupName = group.name
-                                        isGroupDropdownExpanded = false
-                                    }
-                                )
-                            }
+                        TaskStatus.values().forEach { st ->
+                            DropdownMenuItem(
+                                text = { Text(st.value) },
+                                onClick = {
+                                    selectedStatus = st
+                                    expandedStatus = false
+                                }
+                            )
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ✅ 우선순위 (너가 준 방식: Box + Spacer overlay로 클릭 안정화)
+                // 우선순위
                 Text(
                     text = "우선순위",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
@@ -291,7 +281,7 @@ fun AddTaskScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ✅ 선행 Task (precursor) (너가 준 방식 그대로)
+                // 선행 Task (ID만 저장: 후보 리스트는 이후에 그룹 기준으로 확장 가능)
                 Text(
                     text = "선행 태스크 (Precursor)",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
@@ -300,7 +290,7 @@ fun AddTaskScreen(
 
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value = selectedPrecursorTask?.title ?: "없음 (선택 사항)",
+                        value = selectedPrecursorTaskId ?: "없음 (선택 사항)",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = {
@@ -315,7 +305,7 @@ fun AddTaskScreen(
                     Spacer(
                         modifier = Modifier
                             .matchParentSize()
-                            .clickable(enabled = selectedGroupId.isNotBlank()) { expandedPrecursor = true }
+                            .clickable { expandedPrecursor = true }
                     )
 
                     DropdownMenu(
@@ -324,61 +314,50 @@ fun AddTaskScreen(
                     ) {
                         DropdownMenuItem(
                             text = { Text("없음") },
-                            onClick = { selectedPrecursorTask = null; expandedPrecursor = false }
+                            onClick = { selectedPrecursorTaskId = null; expandedPrecursor = false }
                         )
-                        Divider()
-
-                        currentGroupTasks
-                            .filter { it.taskId.isNotBlank() && it.title.isNotBlank() }
-                            .forEach { task ->
-                                DropdownMenuItem(
-                                    text = { Text(task.title) },
-                                    onClick = { selectedPrecursorTask = task; expandedPrecursor = false }
-                                )
-                            }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Task 생성 에러 메시지
-                if (!taskError.isNullOrBlank()) {
-                    Text(text = taskError!!, color = Color.Red, fontSize = 12.sp)
+                if (!error.isNullOrBlank()) {
+                    Text(text = error!!, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Task 추가 버튼 (원래 스타일 유지)
+                // 저장
                 Button(
                     onClick = {
-                        val groupId = selectedGroupId
-
-                        taskViewModel.createTask(
-                            groupId = groupId,
-                            title = taskName,
-                            assignedToUid = "",
-                            dueDate = dueDate,
-                            priority = 2
+                        val base = currentTask ?: return@Button
+                        val updated = base.copy(
+                            title = title,
+                            description = description,
+                            dueDate = finalDueDate,
+                            priority = selectedPriority,
+                            status = selectedStatus,
+                            precursorTaskId = selectedPrecursorTaskId
                         )
-
-                        onTaskCreated()
+                        taskViewModel.updateTask(updated)
+                        onTaskUpdated()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    enabled = isCreateEnabled && !isTaskLoading,
+                    enabled = isSaveEnabled,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = TaskFlowGreen,
                         disabledContainerColor = TaskFlowGreen.copy(alpha = 0.4f)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        text = "Task 추가",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                    } else {
+                        Text(text = "저장", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -387,6 +366,9 @@ fun AddTaskScreen(
     }
 }
 
+/**
+ * AddTaskScreen 스타일 입력 박스 재사용
+ */
 @Composable
 private fun TaskFlowInputBox(
     value: String,
@@ -421,4 +403,93 @@ private fun TaskFlowInputBox(
             }
         }
     )
+}
+
+@Composable
+private fun DateSelectField(
+    selectedDate: Date?,
+    modifier: Modifier,
+    onDateSelected: (Date?) -> Unit
+) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    selectedDate?.let { calendar.time = it }
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val newCalendar = Calendar.getInstance().apply {
+                time = selectedDate ?: Date()
+                set(year, month, dayOfMonth)
+            }
+            onDateSelected(newCalendar.time)
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
+    val dateText = selectedDate?.let {
+        SimpleDateFormat("yyyy.MM.dd", Locale.getDefault()).format(it)
+    } ?: "날짜"
+
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = dateText,
+            onValueChange = {},
+            leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { datePickerDialog.show() }
+        )
+    }
+}
+
+@Composable
+private fun TimeSelectField(
+    selectedTime: Date?,
+    modifier: Modifier,
+    onTimeSelected: (Date?) -> Unit
+) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    selectedTime?.let { calendar.time = it }
+
+    val timePickerDialog = TimePickerDialog(
+        context,
+        { _, hourOfDay, minute ->
+            val newCalendar = Calendar.getInstance().apply {
+                time = selectedTime ?: Date()
+                set(Calendar.HOUR_OF_DAY, hourOfDay)
+                set(Calendar.MINUTE, minute)
+            }
+            onTimeSelected(newCalendar.time)
+        },
+        calendar.get(Calendar.HOUR_OF_DAY),
+        calendar.get(Calendar.MINUTE),
+        true
+    )
+
+    val timeText = selectedTime?.let {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(it)
+    } ?: "시간"
+
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = timeText,
+            onValueChange = {},
+            leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) },
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { timePickerDialog.show() }
+        )
+    }
 }
