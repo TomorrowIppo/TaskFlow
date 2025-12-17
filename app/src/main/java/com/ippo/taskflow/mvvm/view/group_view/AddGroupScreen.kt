@@ -1,72 +1,61 @@
 package com.ippo.taskflow.mvvm.view.group_view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
+import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
-
-// 🚨 임시 색상 정의 (실제 프로젝트 경로에 따라 Import 필요)
-val TaskFlowGreen = Color(0xFF69F0AE)
-val TaskFlowLightGreen = Color(0xFFB9F6CA)
 
 @Composable
 fun AddGroupScreen(
     groupViewModel: GroupViewModel,
     authViewModel: AuthViewModel,
-    // 🚨 [수정] NavHost의 onTaskCreated 콜백에 맞춰 통일 (onGroupAdded 대신 사용)
     onTaskCreated: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
-    // UI 상태 (이름/설명/이메일 입력값 등)
     var groupName by rememberSaveable { mutableStateOf("") }
     var groupDescription by rememberSaveable { mutableStateOf("") }
 
     var inviteEmail by rememberSaveable { mutableStateOf("") }
-    var invitedEmails by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var invitedEmails by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var emailError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val isLoading by groupViewModel.isLoading.collectAsState()
     val groupError by groupViewModel.error.collectAsState()
+    val isSuccess by groupViewModel.groupCreationSuccess.collectAsState()
 
-    val isCreateEnabled = groupName.isNotBlank() // 생성자 본인은 자동 멤버이므로 이것만 체크
-
-    // 💡 Side Effect: Group 생성 성공 시 Navigaton
-    LaunchedEffect(groupViewModel.groupCreationSuccess) {
-        groupViewModel.groupCreationSuccess.collect { isSuccess ->
-            if (isSuccess) {
-                onTaskCreated()
-                // 성공 후 상태 초기화 (옵션)
-                groupViewModel.resetGroupCreationStatus()
-            }
+    LaunchedEffect(isSuccess) {
+        if (isSuccess) {
+            onTaskCreated()
+            groupViewModel.resetGroupCreationStatus()
         }
     }
 
-    Scaffold(
-        // 🚨 [수정] AddGroupScreen에서는 메인 BottomBar를 사용하지 않는 것이 일반적입니다.
-        // 필요하다면 임시 Placeholder로 대체하거나, 메인 NavHost의 BottomBar 설정을 따르세요.
-        bottomBar = {
-            // AddGroupBottomNavBar(onHomeClick = {}, onGroupsClick = {}, onProfileClick = {})
-            // 현재 화면에서는 네비게이션 복잡도를 줄이기 위해 비활성화
-        }
-    ) { innerPadding ->
+    val canCreate = groupName.trim().isNotBlank() && !isLoading
+
+    Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
                 .fillMaxSize()
@@ -77,7 +66,6 @@ fun AddGroupScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                // 상단바
                 AddGroupTopBar(onBackClick = onNavigateBack)
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -92,29 +80,25 @@ fun AddGroupScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Group 이름 필드
+                // Group 이름
                 Text(
                     text = "Group 이름",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 TaskFlowInputBox(
                     value = groupName,
                     onValueChange = { groupName = it },
                     placeholder = "Group 이름을 입력하세요.",
-                    singleLine = true,
+                    singleLine = true
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Group 설명 필드
+                // Group 설명
                 Text(
                     text = "설명",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 TaskFlowInputBox(
@@ -127,12 +111,10 @@ fun AddGroupScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 멤버 이메일 추가 영역 (UI + authViewModel.getUidByEmail 활용)
+                // 멤버 초대
                 Text(
                     text = "멤버 이메일로 초대",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -158,10 +140,8 @@ fun AddGroupScreen(
                             val email = inviteEmail.trim()
                             if (email.isBlank()) return@Button
 
-                            // 이메일로 UID 검색 → 성공하면 invitedEmails 목록에 추가
                             authViewModel.getUidByEmail(email) { uid ->
                                 if (uid != null) {
-                                    // 이미 추가된 이메일이면 중복 추가 방지
                                     if (!invitedEmails.contains(email)) {
                                         invitedEmails = invitedEmails + email
                                     }
@@ -172,7 +152,7 @@ fun AddGroupScreen(
                                 }
                             }
                         },
-                        enabled = inviteEmail.isNotBlank(),
+                        enabled = inviteEmail.trim().isNotBlank() && !isLoading,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = TaskFlowGreen,
                             disabledContainerColor = TaskFlowGreen.copy(alpha = 0.4f)
@@ -192,45 +172,81 @@ fun AddGroupScreen(
                 }
 
                 if (invitedEmails.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "추가된 멤버 (${invitedEmails.size})",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 140.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(invitedEmails, key = { it }) { email ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = email,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            invitedEmails = invitedEmails.filterNot { it == email }
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "삭제",
+                                            tint = Color.Gray
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Group 생성 에러 메시지
                 if (!groupError.isNullOrBlank()) {
                     Text(
                         text = groupError!!,
                         color = Color.Red,
                         fontSize = 12.sp
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // 하단 여백 밀어내기
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Group 추가 버튼
                 Button(
                     onClick = {
-                        // 💡 GroupViewModel 내부에서 groupCreationSuccess 상태를 업데이트해야 합니다.
                         groupViewModel.createGroup(
-                            name = groupName,
-                            description = groupDescription
-                            // 초대된 이메일 처리 로직은 ViewModel에 따라 달라짐.
-                            // members = invitedEmails.mapNotNull { authViewModel.getUidByEmail(it) }
-                            // 이메일은 생성 후 GroupDetail에서 개별 초대하는 것이 일반적일 수 있습니다.
+                            name = groupName.trim(),
+                            description = groupDescription.trim()
                         )
+                        // invitedEmails는 UI 표시용으로만 유지 (명세대로 실제 초대는 이후 흐름에서 처리)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    enabled = isCreateEnabled && !isLoading,
+                    enabled = canCreate,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = TaskFlowGreen,
                         disabledContainerColor = TaskFlowGreen.copy(alpha = 0.4f)
@@ -258,56 +274,6 @@ fun AddGroupScreen(
     }
 }
 
-// --- 보조 컴포넌트 (TaskFlowInputBox, AddGroupTopBar, AddGroupBottomNavBar) ---
-
-/**
- * Figma 스타일에 맞춘 공통 입력 박스 컴포넌트
- */
-@Composable
-private fun TaskFlowInputBox(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    singleLine: Boolean,
-    modifier: Modifier = Modifier,
-    minHeight: Dp = 0.dp,
-    textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(
-        color = Color.Black,
-        fontSize = 14.sp
-    ),
-) {
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        singleLine = singleLine,
-        textStyle = textStyle,
-        modifier = modifier
-            .fillMaxWidth(),
-        decorationBox = { innerTextField ->
-            Box(
-                modifier = Modifier
-                    .background(Color(0xFFF7F7F7), RoundedCornerShape(10.dp))
-                    .then(
-                        if (minHeight > 0.dp) Modifier.heightIn(min = minHeight)
-                        else Modifier
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                contentAlignment = Alignment.TopStart
-            ) {
-                if (value.isEmpty()) {
-                    Text(
-                        text = placeholder,
-                        style = textStyle.copy(
-                            color = Color.Gray
-                        )
-                    )
-                }
-                innerTextField()
-            }
-        }
-    )
-}
-
 @Composable
 private fun AddGroupTopBar(
     onBackClick: () -> Unit,
@@ -333,46 +299,42 @@ private fun AddGroupTopBar(
     }
 }
 
-// 🚨 [참고] 이 BottomNavBar는 이 화면에서 사용되지 않습니다.
+
 @Composable
-private fun AddGroupBottomNavBar(
-    onHomeClick: () -> Unit,
-    onGroupsClick: () -> Unit,
-    onProfileClick: () -> Unit,
+private fun TaskFlowInputBox(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    singleLine: Boolean,
+    modifier: Modifier = Modifier,
+    minHeight: Dp = 0.dp,
+    textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(
+        color = Color.Black,
+        fontSize = 14.sp
+    ),
 ) {
-    Surface(
-        tonalElevation = 8.dp,
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(TaskFlowLightGreen)
-                .padding(horizontal = 40.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onHomeClick) {
-                Icon(
-                    imageVector = Icons.Filled.Home,
-                    contentDescription = "Home",
-                    tint = Color.Black
-                )
-            }
-            IconButton(onClick = onGroupsClick) {
-                Icon(
-                    imageVector = Icons.Filled.Group,
-                    contentDescription = "Groups",
-                    tint = TaskFlowGreen   // Group 탭 강조
-                )
-            }
-            IconButton(onClick = onProfileClick) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = "Profile",
-                    tint = Color.Black
-                )
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = singleLine,
+        textStyle = textStyle,
+        modifier = modifier.fillMaxWidth(),
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier
+                    .background(Color(0xFFF7F7F7), RoundedCornerShape(10.dp))
+                    .then(if (minHeight > 0.dp) Modifier.heightIn(min = minHeight) else Modifier)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                contentAlignment = Alignment.TopStart
+            ) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        style = textStyle.copy(color = Color.Gray)
+                    )
+                }
+                innerTextField()
             }
         }
-    }
+    )
 }
