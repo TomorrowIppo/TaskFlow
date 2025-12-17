@@ -3,6 +3,7 @@ package com.ippo.taskflow.mvvm.view.group_view
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +43,7 @@ import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.model.Group
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 
+
 @Composable
 fun GroupTaskScreen(
     groupViewModel: GroupViewModel,
@@ -55,7 +57,7 @@ fun GroupTaskScreen(
     val isLoading by groupViewModel.isLoading.collectAsState()
     val errorMessage by groupViewModel.error.collectAsState()
 
-    // 첫 진입 시 그룹 목록 로드
+    // 시작 로드
     LaunchedEffect(Unit) {
         groupViewModel.loadGroups()
     }
@@ -86,7 +88,7 @@ fun GroupTaskScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // "내 그룹" 헤더 + 새 그룹 텍스트 버튼
+                // 상단 내 그룹, + 새 그룹
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -113,7 +115,7 @@ fun GroupTaskScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 그룹 목록 + "새로운 그룹 만들기" 카드
+                // 그룹 목록
                 GroupListSection(
                     groups = groupList,
                     isLoading = isLoading,
@@ -122,7 +124,7 @@ fun GroupTaskScreen(
                     },
                     onAddGroupClick = onNavigateToAddGroup
                 )
-                // 에러 표시
+                // 에러 표시(AI)
                 if (!errorMessage.isNullOrBlank()) {
                     Text(
                         text = errorMessage!!,
@@ -143,7 +145,7 @@ private fun GroupTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(40.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {
@@ -177,7 +179,7 @@ private fun GroupListSection(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "그룹 목록을 불러오는 중...",
+                    text = "로딩중",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -187,7 +189,7 @@ private fun GroupListSection(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 96.dp)
+                contentPadding = PaddingValues(bottom = 100.dp)
             ) {
                 items(groups, key = { it.groupId }) { group ->
                     GroupCard(
@@ -316,41 +318,39 @@ private fun AddGroupCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(12.dp),
-            contentAlignment = Alignment.Center
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(TaskFlowLightGreen),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(TaskFlowLightGreen),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "+",
-                        color = TaskFlowGreen,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "새로운 그룹 만들기",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    text = "+",
+                    color = TaskFlowGreen,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "새로운 그룹 만들기",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
         }
     }
 }
+
 
 @Composable
 private fun GroupBottomNavBar(
@@ -394,5 +394,7 @@ private fun GroupBottomNavBar(
         }
     }
 }
+
+
 
 
