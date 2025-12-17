@@ -19,6 +19,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ippo.taskflow.R
 import com.ippo.taskflow.mvvm.model.Task
 import com.ippo.taskflow.mvvm.model.User
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
@@ -46,7 +47,6 @@ fun ProfileScreen(
         taskViewModel.loadMyTasks(uid)
     }
 
-    // ✅ 바텀바는 MainActivity(MainAppNavHost)의 Scaffold에서만 관리한다.
     Scaffold(
         topBar = { ProfileTopBar(onNavigateBack = onNavigateBack) },
         modifier = Modifier.fillMaxSize()
@@ -114,7 +114,10 @@ fun ProfileContent(
     ) {
         Spacer(Modifier.height(24.dp))
 
-        // ProfileImage(imageResId = R.drawable.profile_placeholder, contentDescription = "프로필")
+        ProfileImage(
+            imageResId = R.drawable.ic_taskflow_logo,
+            contentDescription = "프로필"
+        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -129,7 +132,7 @@ fun ProfileContent(
         Text(
             text = statusMessage,
             fontSize = 16.sp,
-            color = Color.Gray
+            color = Color.Black
         )
 
         Spacer(Modifier.height(20.dp))
@@ -138,7 +141,7 @@ fun ProfileContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // ✅ 달력 (일자별 수행률 색상)
+        // 달력 (일자별 수행률 색상)
         ProfileTaskCalendar(
             tasks = tasks,
             modifier = Modifier.fillMaxWidth()
@@ -177,16 +180,16 @@ fun EditProfileButton(onClick: () -> Unit) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF81C784)),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFACFFC1)),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
     ) {
         Icon(
             Icons.Default.Edit,
             contentDescription = "프로필 편집",
-            tint = Color.White,
+            tint = Color.Black,
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(8.dp))
-        Text("프로필 편집", color = Color.White, fontWeight = FontWeight.SemiBold)
+        Text("프로필 편집", color = Color.Black, fontWeight = FontWeight.SemiBold)
     }
 }

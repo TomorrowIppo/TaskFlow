@@ -154,11 +154,25 @@ fun MainAppNavHost(
             }
 
             composable(Destinations.PROFILE_ROUTE) {
-                ProfileScreen(authViewModel, taskViewModel, { navController.popBackStack() }, { navController.navigate(Destinations.PROFILE_SETTING_ROUTE) })
+                ProfileScreen(authViewModel, taskViewModel, { navController.navigate(Destinations.PROFILE_SETTING_ROUTE) } , { navController.popBackStack() })
             }
 
             composable(Destinations.PROFILE_SETTING_ROUTE) {
-                ProfileSettingScreen(authViewModel, { navController.popBackStack() }, { authViewModel.signOut() })
+                ProfileSettingScreen(
+                    authViewModel = authViewModel,
+                    onNavigateBack = {
+                        val prevRoute = navController.previousBackStackEntry?.destination?.route
+
+                        if (prevRoute == Destinations.SETTINGS_ROUTE) {
+                            // 설정에서 들어온 경우: 설정으로 복귀
+                            navController.popBackStack()
+                        } else {
+                            // 프로필에서 들어온 경우: 프로필로 복귀
+                            navController.popBackStack(Destinations.PROFILE_ROUTE, false)
+                        }
+                    },
+                    onSignedOut = { authViewModel.signOut() }
+                )
             }
 
             composable(Destinations.SETTINGS_ROUTE) {

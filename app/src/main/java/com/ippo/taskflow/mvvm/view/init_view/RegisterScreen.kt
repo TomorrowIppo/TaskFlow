@@ -1,295 +1,449 @@
 package com.ippo.taskflow.mvvm.view.init_view
 
+import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ippo.taskflow.R
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 
-// 🚨 임시 색상 정의 (오류를 피하기 위함)
-private val TaskFlowGreen = Color(0xFF9DE7B2)
-private val PrimaryGreen = Color(0xFF4CAF50)
+private val ScreenBg = Color(0xFFACFFC1)
+private val TaskFlowGreen = Color(0xFF1E8A3B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
+    authViewModel: AuthViewModel,
+    onNavigateBack: () -> Unit,
+    onNavigateToLogin: () -> Unit,
+) {
+    RegisterScreenInternal(
+        authViewModel = authViewModel,
+        onNavigateBack = onNavigateBack,
+        onNavigateToLogin = onNavigateToLogin
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegisterScreenInternal(
     authViewModel: AuthViewModel?,
     onNavigateBack: () -> Unit,
     onNavigateToLogin: () -> Unit,
 ) {
-    // ⭐️ AuthViewModel 상태 관찰
-    val isLoading by authViewModel?.isLoading?.collectAsState(initial = false) ?: remember { mutableStateOf(false) }
-    val error by authViewModel?.error?.collectAsState(initial = null) ?: remember { mutableStateOf(null) }
+    val context = LocalContext.current
 
-    // ⭐️ 회원가입 성공 상태 관찰 (네비게이션 전환용)
-    val isRegistrationSuccessful by authViewModel?.isRegistrationSuccessful?.collectAsState(initial = false) ?: remember { mutableStateOf(false) }
-
-    // 로컬 입력 상태
+    // 입력 상태
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordConfirm by remember { mutableStateOf("") }
-
-    // ⭐️ 로컬 유효성 검사 에러 상태
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmVisible by remember { mutableStateOf(false) }
     var localError by remember { mutableStateOf<String?>(null) }
 
-    // ⭐️ 버튼 활성화 조건
+    // VM 상태
+    val isLoading by (authViewModel?.isLoading?.collectAsState()
+        ?: remember { mutableStateOf(false) })
+
+    val errorMessage by (authViewModel?.error?.collectAsState()
+        ?: remember { mutableStateOf<String?>(null) })
+
+    val isRegistrationSuccessful by (authViewModel?.isRegistrationSuccessful?.collectAsState()
+        ?: remember { mutableStateOf(false) })
+
     val isFormValid = name.isNotBlank() && email.isNotBlank() &&
             password.isNotBlank() && passwordConfirm.isNotBlank()
 
-    // 에러 상태 초기화 효과
+    // 입력 변경 시 에러 초기화
     LaunchedEffect(name, email, password, passwordConfirm) {
-        if (!error.isNullOrBlank()) {
-            authViewModel?.clearError()
-        }
+        if (!errorMessage.isNullOrBlank()) authViewModel?.clearError()
         localError = null
     }
 
-    // ⭐️ 회원가입 성공 시 네비게이션 처리
+    // 회원가입 성공 처리
     LaunchedEffect(isRegistrationSuccessful) {
         if (isRegistrationSuccessful) {
             authViewModel?.clearRegistrationSuccess()
-            // AuthNavHost에서 MainAppNavHost로 전환되므로, 현재 화면을 pop하는 것으로 충분
             onNavigateBack()
         }
     }
 
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("회원가입") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "뒤로가기",
-                            tint = Color.Black
-                        )
-                    }
-                }
-            )
+    // 에러 토스트(로그인과 톤 맞춤)
+    LaunchedEffect(errorMessage) {
+        if (!errorMessage.isNullOrBlank()) {
+            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+            authViewModel?.clearError()
         }
-    ) { innerPadding ->
-        Box(
+    }
+
+    Scaffold { innerPadding ->
+        Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFFDF5FF))
-                .padding(innerPadding)
+                .background(ScreenBg)
+                .padding(innerPadding),
+            color = ScreenBg
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Spacer(modifier = Modifier.height(12.dp))
+
+                RegisterHeader(onBack = onNavigateBack)
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = "회원가입",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            textAlign = TextAlign.Center
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_taskflow_logo),
+                            contentDescription = "TaskFlow Logo",
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(20.dp))
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "새로운 계정을 만들어보세요",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // 이름
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text("이름", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = name,
-                                onValueChange = { name = it },
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
-                                placeholder = { Text("이름을 입력하세요") },
-                                singleLine = true
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // 이메일
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text("이메일", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = email,
-                                onValueChange = { email = it },
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
-                                placeholder = { Text("이메일을 입력하세요") },
-                                singleLine = true
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // 비밀번호
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text("비밀번호", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = password,
-                                onValueChange = { password = it },
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
-                                placeholder = { Text("비밀번호를 입력하세요") },
-                                singleLine = true
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // 비밀번호 확인
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text("비밀번호 확인", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = passwordConfirm,
-                                onValueChange = { passwordConfirm = it },
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
-                                placeholder = { Text("비밀번호를 다시 입력하세요") },
-                                singleLine = true
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(22.dp))
-
-                        // ⭐️ 에러 메시지 표시 영역
-                        if (!error.isNullOrBlank()) {
-                            Text(text = error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        } else if (!localError.isNullOrBlank()) {
-                            Text(text = localError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-
-                        // 이메일로 가입하기 버튼
-                        Button(
-                            onClick = {
-                                localError = null
-                                // 로컬 유효성 검사 (비밀번호 일치 확인)
-                                if (password != passwordConfirm) {
-                                    localError = "비밀번호와 비밀번호 확인이 일치하지 않습니다."
-                                    return@Button
-                                }
-
-                                // ⭐️ [핵심 수정] ViewModel 시그니처에 맞춰 4개 인자 모두 전달
-                                authViewModel?.registerUser(
-                                    name = name,
-                                    email = email,
-                                    password = password,
-                                    confirmPassword = passwordConfirm // 4번째 인자 추가
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth().height(44.dp),
-                            enabled = isFormValid && !isLoading,
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = TaskFlowGreen,
-                                contentColor = Color.Black
-                            )
-                        ) {
-                            // 로딩 상태 표시
-                            if (isLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.Black)
-                            } else {
-                                Text("이메일로 가입하기")
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // 또는 구분선
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Divider(modifier = Modifier.weight(1f))
-                            Text(text = "  또는  ", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                            Divider(modifier = Modifier.weight(1f))
-                        }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // 소셜 로그인 버튼들
-                        SocialLoginButton(text = "Google로 가입하기", onClick = { /* TODO */ })
-                        Spacer(modifier = Modifier.height(10.dp))
-                        SocialLoginButton(text = "Facebook으로 가입하기", onClick = { /* TODO */ })
-                        Spacer(modifier = Modifier.height(10.dp))
-                        SocialLoginButton(text = "Apple로 가입하기", onClick = { /* TODO */ })
+                        Text(
+                            text = "회원가입",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            textAlign = TextAlign.Center,
+                            color = Color.Black
+                        )
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(text = "이미 계정이 있으신가요? ", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                            Text(
-                                text = "로그인하기",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = PrimaryGreen,
-                                modifier = Modifier.clickable { onNavigateToLogin() }
-                            )
-                        }
+                        Text(
+                            text = "새로운 계정을 만들어보세요",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF4F4F4F),
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = ScreenBg),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp)
+                            .background(ScreenBg)
+                    ) {
+                        // 이름
+                        Text("이름", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("이름을 입력하세요") },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = "name") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tfFieldColors()
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 이메일
+                        Text("Email", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Enter your email") },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = "email") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tfFieldColors()
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 비밀번호
+                        Text("Password", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Enter your password") },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "password") },
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = "toggle password"
+                                    )
+                                }
+                            },
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tfFieldColors()
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 비밀번호 확인
+                        Text("Password Confirm", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = passwordConfirm,
+                            onValueChange = { passwordConfirm = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Re-enter your password") },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "confirm password") },
+                            trailingIcon = {
+                                IconButton(onClick = { confirmVisible = !confirmVisible }) {
+                                    Icon(
+                                        imageVector = if (confirmVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = "toggle confirm password"
+                                    )
+                                }
+                            },
+                            visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tfFieldColors()
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                //로컬 에러만 아래에 표시
+                if (!localError.isNullOrBlank()) {
+                    Text(
+                        text = localError!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // “이메일로 가입하기” 버튼
+                Button(
+                    onClick = {
+                        localError = null
+                        if (password != passwordConfirm) {
+                            localError = "비밀번호와 비밀번호 확인이 일치하지 않습니다."
+                            return@Button
+                        }
+                        authViewModel?.registerUser(
+                            name = name,
+                            email = email,
+                            password = password,
+                            confirmPassword = passwordConfirm
+                        )
+                    },
+                    enabled = isFormValid && !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TaskFlowGreen,
+                        contentColor = Color.White
+                    )
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("가입 중...")
+                    } else {
+                        Text("이메일로 가입하기")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Divider(modifier = Modifier.weight(1f), color = Color(0x33000000))
+                    Text("  또는  ", style = MaterialTheme.typography.bodySmall, color = Color(0xFF666666))
+                    Divider(modifier = Modifier.weight(1f), color = Color(0x33000000))
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 소셜 가입
+                SocialJoinButton(
+                    iconRes = R.drawable.ic_google,
+                    text = "Google로 가입하기",
+                    onClick = { /* TODO */ }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                SocialJoinButton(
+                    iconRes = R.drawable.ic_facebook,
+                    text = "Facebook으로 가입하기",
+                    onClick = { /* TODO */ }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                SocialJoinButton(
+                    iconRes = R.drawable.ic_apple,
+                    text = "Apple로 가입하기",
+                    onClick = { /* TODO */ }
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                // 하단 링크
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "이미 계정이 있으신가요? ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF555555)
+                    )
+                    Text(
+                        text = "로그인하기",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = TaskFlowGreen,
+                        modifier = Modifier.clickable { onNavigateToLogin() }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
 
 @Composable
-private fun SocialLoginButton(
-    text: String,
-    onClick: () -> Unit
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(40.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = Color.Black
-        )
+private fun RegisterHeader(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = text, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+        IconButton(onClick = onBack) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "뒤로가기",
+                tint = Color.Black
+            )
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "회원가입",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = Color.Black
+        )
     }
 }
 
+@Composable
+private fun SocialJoinButton(
+    iconRes: Int,
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = Color.White,
+        shadowElevation = 1.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(id = iconRes),
+                contentDescription = text,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Black
+            )
+            Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun tfFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color.White,
+    errorContainerColor = Color.White,
+    focusedBorderColor = Color.Black,
+    unfocusedBorderColor = Color.Black,
+    errorBorderColor = MaterialTheme.colorScheme.error
+)
 
 @Preview(showBackground = true)
 @Composable
 fun RegisterScreenPreview() {
     MaterialTheme {
-        RegisterScreen(
+        RegisterScreenInternal(
             authViewModel = null,
             onNavigateBack = {},
             onNavigateToLogin = {}
