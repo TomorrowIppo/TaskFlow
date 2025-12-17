@@ -10,15 +10,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,98 +36,79 @@ import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.model.Group
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
-import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel // ✅ 추가 (TODO 구현용)
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 
 @Composable
 fun GroupTaskScreen(
     groupViewModel: GroupViewModel,
-    taskViewModel: TaskViewModel, // ✅ 추가 (TODO 구현용)
+    taskViewModel: TaskViewModel,
     onNavigateToMain: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToAddGroup: () -> Unit,
     onNavigateToGroupDetail: (groupId: String) -> Unit,
 ) {
-    // ViewModel State Observe
     val groupList by groupViewModel.groupList.collectAsState()
     val isLoading by groupViewModel.isLoading.collectAsState()
     val errorMessage by groupViewModel.error.collectAsState()
 
-    // 첫 진입 시 그룹 목록 로드
     LaunchedEffect(Unit) {
         groupViewModel.loadGroups()
     }
 
-    Scaffold(
-        bottomBar = {
-            GroupBottomNavBar(
-                onHomeClick = onNavigateToMain,
-                onGroupsClick = { /* 현재 화면 → No-op */ },
-                onProfileClick = onNavigateToProfile
-            )
-        }
-    ) { innerPadding ->
-        Surface(
+    // ✅ [수정 1] Screen 내부에서 bottomBar를 그리지 않음 (MainActivity의 Scaffold가 담당)
+    Surface(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            GroupTopBar(
+                onBackClick = onNavigateToMain
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // 상단바
-                GroupTopBar(
-                    onBackClick = onNavigateToMain // 상단 뒤로가기 → 메인으로
+                Text(
+                    text = "내 그룹",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // "내 그룹" 헤더 + 새 그룹 텍스트 버튼
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "내 그룹",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                    )
-                    Text(
-                        text = "+ 새 그룹",
-                        color = TaskFlowGreen,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        modifier = Modifier.clickable { onNavigateToAddGroup() }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 에러 표시
-                if (!errorMessage.isNullOrBlank()) {
-                    Text(
-                        text = errorMessage!!,
-                        color = Color.Red,
-                        fontSize = 12.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // 그룹 목록 + "새로운 그룹 만들기" 카드
-                GroupListSection(
-                    groups = groupList,
-                    isLoading = isLoading,
-                    taskViewModel = taskViewModel, // ✅ 추가 (TODO 구현용)
-                    onGroupClick = { groupId ->
-                        onNavigateToGroupDetail(groupId)
-                    },
-                    onAddGroupClick = onNavigateToAddGroup
+                Text(
+                    text = "+ 새 그룹",
+                    color = TaskFlowGreen,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.clickable { onNavigateToAddGroup() }
                 )
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (!errorMessage.isNullOrBlank()) {
+                Text(
+                    text = errorMessage!!,
+                    color = Color.Red,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            GroupListSection(
+                groups = groupList,
+                isLoading = isLoading,
+                taskViewModel = taskViewModel,
+                onGroupClick = { groupId -> onNavigateToGroupDetail(groupId) },
+                onAddGroupClick = onNavigateToAddGroup
+            )
         }
     }
 }
@@ -164,7 +142,7 @@ private fun GroupTopBar(
 private fun GroupListSection(
     groups: List<Group>,
     isLoading: Boolean,
-    taskViewModel: TaskViewModel, // ✅ 추가 (TODO 구현용)
+    taskViewModel: TaskViewModel,
     onGroupClick: (String) -> Unit,
     onAddGroupClick: () -> Unit,
 ) {
@@ -186,31 +164,28 @@ private fun GroupListSection(
         contentPadding = PaddingValues(bottom = 96.dp)
     ) {
         items(groups, key = { it.groupId }) { group ->
-
-            // ✅ TODO 구현: groupId별 TaskMetrics를 ViewModel에서 observe
             val metricsFlow = remember(group.groupId) {
                 taskViewModel.observeGroupMetrics(group.groupId)
             }
             val metrics by metricsFlow.collectAsState()
 
+            // ✅ [수정 2] “진행 중” 정의 변경: TODO + IN_PROGRESS
             val inProgressCount = metrics.inProgress
+
             val completionRatio =
                 if (metrics.total == 0) 0f else metrics.done.toFloat() / metrics.total.toFloat()
 
             GroupCard(
                 group = group,
-                inProgressCount = inProgressCount,       // ✅ TODO 해결
-                completionRatio = completionRatio,       // ✅ TODO 해결
+                inProgressCount = inProgressCount,
+                completionRatio = completionRatio,
                 onClick = { onGroupClick(group.groupId) }
             )
         }
 
-        // 하단 "새로운 그룹 만들기" 카드
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            AddGroupCard(
-                onClick = onAddGroupClick
-            )
+            AddGroupCard(onClick = onAddGroupClick)
         }
     }
 }
@@ -218,8 +193,8 @@ private fun GroupListSection(
 @Composable
 private fun GroupCard(
     group: Group,
-    inProgressCount: Int,   // ✅ TODO 해결(외부 주입)
-    completionRatio: Float, // ✅ TODO 해결(외부 주입)
+    inProgressCount: Int,
+    completionRatio: Float,
     onClick: () -> Unit,
 ) {
     val memberCount = group.memberUids.size
@@ -229,9 +204,7 @@ private fun GroupCard(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -239,7 +212,6 @@ private fun GroupCard(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
-            // 상단: 그룹 이름 + 멤버 수
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -247,9 +219,7 @@ private fun GroupCard(
             ) {
                 Text(
                     text = group.name.ifBlank { "이름 없는 그룹" },
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -272,7 +242,6 @@ private fun GroupCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 중간: 진행 Task 정보
             Text(
                 text = "${inProgressCount}개 진행 중",
                 style = MaterialTheme.typography.bodySmall,
@@ -281,20 +250,20 @@ private fun GroupCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // 진행률 바
             LinearProgressIndicator(
-                progress = completionRatio,
+                progress = {completionRatio},
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(50)),
                 color = TaskFlowGreen,
-                trackColor = Color(0xFFE5E5E5)
+                trackColor = Color(0xFFE5E5E5),
+                // ✅ [수정 3] 오른쪽 초록 점(Stop indicator) 제거 (Material3 지원 버전일 때)
+                drawStopIndicator = {}
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // 완료율 텍스트 (오른쪽 정렬 느낌)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
@@ -319,9 +288,7 @@ private fun AddGroupCard(
             .height(120.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(
@@ -330,9 +297,7 @@ private fun AddGroupCard(
                 .padding(12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -351,52 +316,7 @@ private fun AddGroupCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "새로운 그룹 만들기",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF7A7A7A)
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun GroupBottomNavBar(
-    onHomeClick: () -> Unit,
-    onGroupsClick: () -> Unit,
-    onProfileClick: () -> Unit,
-) {
-    Surface(
-        tonalElevation = 8.dp,
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(TaskFlowLightGreen)
-                .padding(horizontal = 40.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onHomeClick) {
-                Icon(
-                    imageVector = Icons.Filled.Home,
-                    contentDescription = "Home",
-                    tint = Color.Black
-                )
-            }
-            IconButton(onClick = onGroupsClick) {
-                Icon(
-                    imageVector = Icons.Filled.Group,
-                    contentDescription = "Groups",
-                    tint = TaskFlowGreen // 현재 선택된 탭
-                )
-            }
-            IconButton(onClick = onProfileClick) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = "Profile",
-                    tint = Color.Black
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF7A7A7A))
                 )
             }
         }
