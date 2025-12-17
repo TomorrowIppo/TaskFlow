@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Schedule
@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -28,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ippo.taskflow.activity.ui.theme.InputBackground
 import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
-import com.ippo.taskflow.mvvm.model.Task
 import com.ippo.taskflow.mvvm.model.TaskStatus
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
@@ -71,6 +69,9 @@ fun EditTaskScreen(
     var selectedDate by rememberSaveable(taskId) { mutableStateOf<Date?>(null) }
     var selectedTime by rememberSaveable(taskId) { mutableStateOf<Date?>(null) }
 
+    // ✅ [추가] 삭제 확인 다이얼로그 상태
+    var showDeleteConfirm by rememberSaveable(taskId) { mutableStateOf(false) } // ✅ ADDED
+
     // 폼 초기 세팅(딱 1번)
     LaunchedEffect(currentTask) {
         val t = currentTask ?: return@LaunchedEffect
@@ -95,6 +96,28 @@ fun EditTaskScreen(
 
     val isSaveEnabled = title.isNotBlank() && currentTask != null && !isLoading
 
+    // ✅ [추가] 삭제 확인 다이얼로그 UI
+    if (showDeleteConfirm) { // ✅ ADDED
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Task 삭제") },
+            text = { Text("정말 이 Task를 삭제할까요? 삭제하면 복구할 수 없습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        taskViewModel.deleteTask(taskId)
+                        onTaskUpdated()
+                        onNavigateBack()
+                    }
+                ) { Text("삭제") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") }
+            }
+        )
+    } // ✅ ADDED END
+
     Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
@@ -114,7 +137,7 @@ fun EditTaskScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "뒤로가기")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
                     }
                     Text(
                         text = "Task 수정하기",
@@ -222,7 +245,7 @@ fun EditTaskScreen(
                         expanded = expandedStatus,
                         onDismissRequest = { expandedStatus = false }
                     ) {
-                        TaskStatus.values().forEach { st ->
+                        TaskStatus.entries.forEach { st ->
                             DropdownMenuItem(
                                 text = { Text(st.value) },
                                 onClick = {
@@ -328,37 +351,55 @@ fun EditTaskScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 저장
-                Button(
-                    onClick = {
-                        val base = currentTask ?: return@Button
-                        val updated = base.copy(
-                            title = title,
-                            description = description,
-                            dueDate = finalDueDate,
-                            priority = selectedPriority,
-                            status = selectedStatus,
-                            precursorTaskId = selectedPrecursorTaskId
-                        )
-                        taskViewModel.updateTask(updated)
-                        onTaskUpdated()
-                    },
+                // ✅ [변경] 하단 버튼을 Row로 나눠서 "삭제/저장" 반반 배치
+                Row( // ✅ ADDED
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    enabled = isSaveEnabled,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = TaskFlowGreen,
-                        disabledContainerColor = TaskFlowGreen.copy(alpha = 0.4f)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
-                    } else {
-                        Text(text = "저장", color = Color.White, fontWeight = FontWeight.Bold)
+                    OutlinedButton( // ✅ ADDED
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        enabled = currentTask != null && !isLoading,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(text = "삭제", fontWeight = FontWeight.Bold)
                     }
-                }
+
+                    Button(
+                        onClick = {
+                            val base = currentTask ?: return@Button
+                            val updated = base.copy(
+                                title = title,
+                                description = description,
+                                dueDate = finalDueDate,
+                                priority = selectedPriority,
+                                status = selectedStatus,
+                                precursorTaskId = selectedPrecursorTaskId
+                            )
+                            taskViewModel.updateTask(updated)
+                            onTaskUpdated()
+                        },
+                        modifier = Modifier
+                            .weight(1f) // ✅ CHANGED (fillMaxWidth -> weight)
+                            .fillMaxHeight(),
+                        enabled = isSaveEnabled,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = TaskFlowGreen,
+                            disabledContainerColor = TaskFlowGreen.copy(alpha = 0.4f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                        } else {
+                            Text(text = "저장", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } // ✅ ADDED END
 
                 Spacer(modifier = Modifier.height(16.dp))
             }

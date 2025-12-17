@@ -17,7 +17,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.ippo.taskflow.activity.ui.theme.InputBackground
 import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.mvvm.model.Task
+import com.ippo.taskflow.mvvm.model.User // ✅ 추가
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
@@ -46,6 +46,15 @@ fun AddTaskScreen(
     val taskError by taskViewModel.error.collectAsState()
     val currentGroupTasks by taskViewModel.taskList.collectAsState()
 
+    // ✅ 추가: 그룹 멤버 목록 Observe
+    val groupMembers by groupViewModel.currentGroupMembers.collectAsState()
+
+    // ✅ 추가: 최초 진입 시 precursor 후보/멤버 후보 로드
+    LaunchedEffect(initialGroupId) {
+        taskViewModel.loadTasks(initialGroupId)
+        groupViewModel.loadGroupDetail(initialGroupId)
+    }
+
     var taskName by rememberSaveable { mutableStateOf("") }
     var taskDescription by rememberSaveable { mutableStateOf("") }
     var selectedPriority by rememberSaveable { mutableStateOf(2) }
@@ -54,6 +63,10 @@ fun AddTaskScreen(
     var expandedPrecursor by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf<Date?>(null) }
     var selectedTime by remember { mutableStateOf<Date?>(null) }
+
+    // ✅ 추가: 담당자 선택 상태
+    var selectedAssignee by remember { mutableStateOf<User?>(null) }
+    var expandedAssignee by remember { mutableStateOf(false) }
 
     val finalDueDate = remember(selectedDate, selectedTime) {
         selectedDate?.let { d ->
@@ -71,9 +84,18 @@ fun AddTaskScreen(
     Scaffold { innerPadding ->
         Surface(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, "뒤로가기") }
-                    Text("새로운 Task 추가하기", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp))
+                    Text(
+                        "새로운 Task 추가하기",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    )
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -107,9 +129,47 @@ fun AddTaskScreen(
                     Spacer(Modifier.matchParentSize().clickable { expandedPriority = true })
                     DropdownMenu(expandedPriority, { expandedPriority = false }) {
                         (1..3).forEach { p ->
-                            DropdownMenuItem(text = { Text("$p (${if (p == 1) "높음" else if (p == 2) "보통" else "낮음"})") },
-                                onClick = { selectedPriority = p; expandedPriority = false })
+                            DropdownMenuItem(
+                                text = { Text("$p (${if (p == 1) "높음" else if (p == 2) "보통" else "낮음"})") },
+                                onClick = { selectedPriority = p; expandedPriority = false }
+                            )
                         }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ✅ 추가: 담당자(그룹 멤버) 선택 UI
+                Text("담당자", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                Box(Modifier.fillMaxWidth()) {
+                    val assigneeLabel = selectedAssignee?.let { "${it.name} (${it.email})" } ?: "없음 (미할당)"
+                    OutlinedTextField(
+                        value = assigneeLabel,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, Modifier.rotate(if (expandedAssignee) 180f else 0f)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.matchParentSize().clickable { expandedAssignee = true })
+
+                    DropdownMenu(expandedAssignee, { expandedAssignee = false }) {
+                        DropdownMenuItem(
+                            text = { Text("없음 (미할당)") },
+                            onClick = { selectedAssignee = null; expandedAssignee = false }
+                        )
+
+                        // 같은 그룹 멤버 목록에서 선택
+                        groupMembers
+                            .filter { it.uid.isNotBlank() }
+                            .forEach { member ->
+                                DropdownMenuItem(
+                                    text = { Text("${member.name} (${member.email})") },
+                                    onClick = {
+                                        selectedAssignee = member
+                                        expandedAssignee = false
+                                    }
+                                )
+                            }
                     }
                 }
 
@@ -125,10 +185,18 @@ fun AddTaskScreen(
                     )
                     Spacer(Modifier.matchParentSize().clickable { expandedPrecursor = true })
                     DropdownMenu(expandedPrecursor, { expandedPrecursor = false }) {
-                        DropdownMenuItem(text = { Text("없음") }, onClick = { selectedPrecursorTask = null; expandedPrecursor = false })
-                        currentGroupTasks.filter { it.taskId.isNotBlank() && it.title.isNotBlank() }.forEach { task ->
-                            DropdownMenuItem(text = { Text(task.title) }, onClick = { selectedPrecursorTask = task; expandedPrecursor = false })
-                        }
+                        DropdownMenuItem(
+                            text = { Text("없음") },
+                            onClick = { selectedPrecursorTask = null; expandedPrecursor = false }
+                        )
+                        currentGroupTasks
+                            .filter { it.taskId.isNotBlank() && it.title.isNotBlank() }
+                            .forEach { task ->
+                                DropdownMenuItem(
+                                    text = { Text(task.title) },
+                                    onClick = { selectedPrecursorTask = task; expandedPrecursor = false }
+                                )
+                            }
                     }
                 }
 
@@ -136,11 +204,11 @@ fun AddTaskScreen(
 
                 Button(
                     onClick = {
-                        // ⭐️ [에러 해결] 뷰모델 파라미터에 로컬 상태 변수들을 정확히 매칭하여 전달
                         taskViewModel.createTask(
                             groupId = initialGroupId,
                             title = taskName,
-                            assignedToUid = "",
+                            // ✅ 변경: 선택된 담당자 UID 할당
+                            assignedToUid = selectedAssignee?.uid ?: "",
                             dueDate = finalDueDate,
                             priority = selectedPriority,
                             precursorTaskId = selectedPrecursorTask?.taskId
@@ -162,13 +230,27 @@ fun AddTaskScreen(
 }
 
 @Composable
-private fun TaskFlowInputBox(value: String, onValueChange: (String) -> Unit, placeholder: String, singleLine: Boolean, modifier: Modifier = Modifier, minHeight: Dp = 0.dp) {
+private fun TaskFlowInputBox(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    singleLine: Boolean,
+    modifier: Modifier = Modifier,
+    minHeight: Dp = 0.dp
+) {
     BasicTextField(
-        value = value, onValueChange = onValueChange, singleLine = singleLine,
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = singleLine,
         textStyle = MaterialTheme.typography.bodyMedium.copy(Color.Black, 14.sp),
         modifier = modifier.fillMaxWidth(),
         decorationBox = { innerTextField ->
-            Box(Modifier.background(InputBackground, RoundedCornerShape(10.dp)).then(if (minHeight > 0.dp) Modifier.heightIn(minHeight) else Modifier).padding(16.dp, 12.dp)) {
+            Box(
+                Modifier
+                    .background(InputBackground, RoundedCornerShape(10.dp))
+                    .then(if (minHeight > 0.dp) Modifier.heightIn(minHeight) else Modifier)
+                    .padding(16.dp, 12.dp)
+            ) {
                 if (value.isEmpty()) Text(placeholder, style = TextStyle(Color.Gray, 14.sp))
                 innerTextField()
             }
@@ -181,15 +263,23 @@ private fun DateSelectField(selectedDate: Date?, modifier: Modifier, onDateSelec
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
     selectedDate?.let { calendar.time = it }
-    val dialog = DatePickerDialog(context, { _, y, m, d ->
-        val res = Calendar.getInstance().apply { set(y, m, d) }
-        onDateSelected(res.time)
-    }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+    val dialog = DatePickerDialog(
+        context,
+        { _, y, m, d ->
+            val res = Calendar.getInstance().apply { set(y, m, d) }
+            onDateSelected(res.time)
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
 
     Box(modifier) {
         OutlinedTextField(
             value = selectedDate?.let { SimpleDateFormat("yyyy.MM.dd", Locale.getDefault()).format(it) } ?: "날짜",
-            onValueChange = {}, readOnly = true, leadingIcon = { Icon(Icons.Default.CalendarToday, null) },
+            onValueChange = {},
+            readOnly = true,
+            leadingIcon = { Icon(Icons.Default.CalendarToday, null) },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.matchParentSize().clickable { dialog.show() })
@@ -201,15 +291,26 @@ private fun TimeSelectField(selectedTime: Date?, modifier: Modifier, onTimeSelec
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
     selectedTime?.let { calendar.time = it }
-    val dialog = TimePickerDialog(context, { _, h, m ->
-        val res = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, m) }
-        onTimeSelected(res.time)
-    }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true)
+    val dialog = TimePickerDialog(
+        context,
+        { _, h, m ->
+            val res = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, h)
+                set(Calendar.MINUTE, m)
+            }
+            onTimeSelected(res.time)
+        },
+        calendar.get(Calendar.HOUR_OF_DAY),
+        calendar.get(Calendar.MINUTE),
+        true
+    )
 
     Box(modifier) {
         OutlinedTextField(
             value = selectedTime?.let { SimpleDateFormat("HH:mm", Locale.getDefault()).format(it) } ?: "시간",
-            onValueChange = {}, readOnly = true, leadingIcon = { Icon(Icons.Default.Schedule, null) },
+            onValueChange = {},
+            readOnly = true,
+            leadingIcon = { Icon(Icons.Default.Schedule, null) },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.matchParentSize().clickable { dialog.show() })
