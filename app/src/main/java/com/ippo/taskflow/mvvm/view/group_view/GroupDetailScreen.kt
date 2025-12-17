@@ -26,7 +26,7 @@ import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskMetrics
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 
-// ⭐️ [에러 해결] 탭 상태를 위한 Enum 정의
+// ⭐️ [에러 해결] Enum 정의 누락 방지
 enum class GroupDetailTab {
     FLOW, LIST
 }
@@ -45,7 +45,7 @@ fun GroupDetailScreen(
     val taskList by taskViewModel.taskList.collectAsState()
     val metrics by taskViewModel.taskMetrics.collectAsState()
 
-    // ⭐️ [에러 해결] Enum 참조 에러 수정
+    // ⭐️ [에러 해결] GroupDetailTab.FLOW 참조 가능
     var selectedTab by remember { mutableStateOf(GroupDetailTab.FLOW) }
 
     LaunchedEffect(groupId) {
@@ -83,6 +83,7 @@ fun GroupDetailScreen(
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Text("플로우차트 미리보기", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                                     val taskDependencyMap = createTaskDependencyMap(taskList)
+                                    // ⭐️ 중앙 정렬 버전 호출
                                     TaskFlowChartVertical(taskList, taskDependencyMap, onNavigateToTaskDetail)
                                 }
                             }
@@ -108,7 +109,9 @@ fun TaskFlowChartVertical(
     val horizontalScrollState = rememberScrollState()
 
     Card(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp, max = 600.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 300.dp, max = 600.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(2.dp)
@@ -120,9 +123,17 @@ fun TaskFlowChartVertical(
             return@Card
         }
 
-        Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState)) {
+        // ⭐️ [수정] Box와 horizontalScroll 조합으로 중앙 정렬 구현
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .horizontalScroll(horizontalScrollState),
+            contentAlignment = Alignment.TopCenter // 👈 가로축 중앙 정렬 핵심
+        ) {
             Column(
-                modifier = Modifier.padding(20.dp).wrapContentWidth(),
+                modifier = Modifier
+                    .padding(20.dp)
+                    .wrapContentWidth(), // 👈 내용물만큼만 너비를 가짐
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -146,8 +157,20 @@ fun TaskTreeColumn(
         TaskNodeCardInFlow(task) { onNavigateToTaskDetail(task.taskId) }
 
         if (children.isNotEmpty()) {
-            Box(modifier = Modifier.width(2.dp).height(20.dp).background(Color.LightGray.copy(alpha = 0.6f)))
-            Row(modifier = Modifier.wrapContentWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            // 부모-자식 연결 세로선
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(20.dp)
+                    .background(Color.LightGray.copy(alpha = 0.6f))
+            )
+
+            // 자식들을 가로로 나열
+            Row(
+                modifier = Modifier.wrapContentWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.Top
+            ) {
                 children.forEach { child ->
                     TaskTreeColumn(child, taskDependencyMap, onNavigateToTaskDetail)
                 }
@@ -167,20 +190,40 @@ fun TaskNodeCardInFlow(task: Task, onClick: () -> Unit) {
 
     Card(
         onClick = onClick,
-        modifier = Modifier.width(140.dp).height(65.dp),
+        modifier = Modifier
+            .width(140.dp)
+            .height(65.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(statusColor).align(Alignment.TopCenter))
-            Column(modifier = Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = task.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(text = "우선순위: ${task.priority}", fontSize = 10.sp, color = Color.Gray)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(8.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = task.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "우선순위: ${task.priority}",
+                    fontSize = 10.sp,
+                    color = Color.Gray
+                )
             }
         }
     }
 }
+
+// -------------------------------------------------------------
+// ⭐️ 나머지 유틸리티 함수 (기존과 동일하게 유지)
+// -------------------------------------------------------------
 
 fun createTaskDependencyMap(tasks: List<Task>): Map<String?, List<Task>> {
     val map = mutableMapOf<String?, MutableList<Task>>()
@@ -193,10 +236,15 @@ fun createTaskDependencyMap(tasks: List<Task>): Map<String?, List<Task>> {
 
 @Composable
 fun TaskMetricsCard(metrics: TaskMetrics) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
         Row(modifier = Modifier.padding(20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-            MetricItem("할 일", metrics.todo, AccentBlue)
-            MetricItem("완료", metrics.done, PrimaryGreen)
+            MetricItem("할 일", metrics.todo, Color(0xFF42A5F5))
+            MetricItem("완료", metrics.done, Color(0xFF66BB6A))
             MetricItem("막힘", metrics.blocked, Color.Red)
         }
     }
@@ -212,7 +260,12 @@ fun MetricItem(label: String, value: Int, color: Color) {
 
 @Composable
 fun MyTaskQuickAccess(onNavigateToAddTask: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.width(12.dp))
@@ -234,14 +287,24 @@ fun TabSelectionBar(selectedTab: GroupDetailTab, onTabSelected: (GroupDetailTab)
 
 @Composable
 fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) PrimaryGreen else Color.White, contentColor = if (isSelected) Color.White else Color.Gray), shape = RoundedCornerShape(20.dp), modifier = Modifier.height(40.dp)) { Text(text) }
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) Color(0xFF69F0AE) else Color.White, contentColor = if (isSelected) Color.White else Color.Gray),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.height(40.dp)
+    ) { Text(text) }
 }
 
 @Composable
 fun TaskListScreen(tasks: List<Task>, onNavigateToTaskDetail: (String) -> Unit, onNavigateToAddTask: () -> Unit) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         items(tasks, key = { it.taskId }) { task ->
-            Card(onClick = { onNavigateToTaskDetail(task.taskId) }, modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(1.dp)) {
+            Card(
+                onClick = { onNavigateToTaskDetail(task.taskId) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(1.dp)
+            ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(10.dp).background(Color(0xFFBDBDBD), RoundedCornerShape(5.dp)))
                     Spacer(modifier = Modifier.width(12.dp))
