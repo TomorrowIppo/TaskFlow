@@ -51,6 +51,7 @@ object Destinations {
     const val LOGIN_ROUTE = "login"
     const val REGISTER_ROUTE = "register"
 
+
     // 2. 메인 앱
     const val HOME_ROUTE = "home"
     const val PROFILE_ROUTE = "profile"
@@ -60,13 +61,15 @@ object Destinations {
     const val GROUP_DETAIL_ROUTE = "groupDetail/{groupId}"
     const val ADD_GROUP_ROUTE = "addGroup"
     const val ADD_TASK_ROUTE = "addTask"
-
     const val TASK_DETAIL_ROUTE = "taskDetail/{taskId}"
+
+    const val EDIT_TASK_ROUTE = "editTask/{taskId}"
 
     fun groupDetailRoute(groupId: String) = "groupDetail/$groupId"
 
     // ✅ 추가: EditTask 인자 전달 함수
     fun editTaskRoute(taskId: String) = "editTask/$taskId"
+
 }
 
 class MainActivity : ComponentActivity() {
@@ -201,7 +204,10 @@ fun MainAppNavHost(
                     taskViewModel = taskViewModel,
                     onNavigateToSettings = { navController.navigate(Destinations.SETTINGS_ROUTE) },
                     onNavigateToProfile = { navController.navigate(Destinations.PROFILE_ROUTE) },
-                    onNavigateToGroups = { navController.navigate(Destinations.GROUPS_ROUTE) }
+                    onNavigateToGroups = { navController.navigate(Destinations.GROUPS_ROUTE) },
+                    onNavigateToEditTask = { taskId ->
+                        navController.navigate(Destinations.editTaskRoute(taskId))
+                    }
                 )
             }
 
@@ -242,6 +248,7 @@ fun MainAppNavHost(
             composable(Destinations.GROUPS_ROUTE) {
                 GroupTaskScreen(
                     groupViewModel = groupViewModel,
+                    taskViewModel = taskViewModel,
                     onNavigateToMain = { navController.navigate(Destinations.HOME_ROUTE) },
                     onNavigateToProfile = { navController.navigate(Destinations.PROFILE_ROUTE) },
                     onNavigateToAddGroup = { navController.navigate(Destinations.ADD_GROUP_ROUTE) },
@@ -300,7 +307,23 @@ fun MainAppNavHost(
                 }
             }
 
-            // --- (기타 경로 생략) ---
+            // ✅ 10. EDIT TASK (editTask/{taskId})
+            composable(Destinations.EDIT_TASK_ROUTE) { backStackEntry ->
+                val taskId = backStackEntry.arguments?.getString("taskId")
+
+                if (taskId != null) {
+                    EditTaskScreen(
+                        taskId = taskId,
+                        taskViewModel = taskViewModel,
+                        onTaskUpdated = { navController.popBackStack() },
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                } else {
+                    Text("Error: Task ID Missing for Edit Task")
+                }
+            }
+
+
         }
     }
 }

@@ -39,6 +39,7 @@ import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.model.Group
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel // ✅ 추가 (TODO 구현용)
 
 @Composable
 fun GroupTaskScreen(
@@ -49,17 +50,24 @@ fun GroupTaskScreen(
     onNavigateToAddGroup: () -> Unit,
     onNavigateToGroupDetail: (groupId: String) -> Unit,
 ) {
+    // ViewModel State Observe
     val groupList by groupViewModel.groupList.collectAsState()
     val isLoading by groupViewModel.isLoading.collectAsState()
     val errorMessage by groupViewModel.error.collectAsState()
 
+    // 첫 진입 시 그룹 목록 로드
     LaunchedEffect(Unit) {
         groupViewModel.loadGroups()
     }
 
     Scaffold(
-        // ✅ [수정] bottomBar 제거: 전역 하단바(TaskFlowBottomNavBar)는 MainActivity에서 관리
-        // GroupTaskScreen은 shouldShowBottomBar()에서 표시 대상
+        bottomBar = {
+            GroupBottomNavBar(
+                onHomeClick = onNavigateToMain,
+                onGroupsClick = { /* 현재 화면 → No-op */ },
+                onProfileClick = onNavigateToProfile
+            )
+        }
     ) { innerPadding ->
         Surface(
             modifier = Modifier
@@ -71,12 +79,14 @@ fun GroupTaskScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
+                // 상단바
                 GroupTopBar(
-                    onBackClick = onNavigateToMain
+                    onBackClick = onNavigateToMain // 상단 뒤로가기 → 메인으로
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // "내 그룹" 헤더 + 새 그룹 텍스트 버튼
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -100,6 +110,7 @@ fun GroupTaskScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // 에러 표시
                 if (!errorMessage.isNullOrBlank()) {
                     Text(
                         text = errorMessage!!,
@@ -109,6 +120,7 @@ fun GroupTaskScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
+                // 그룹 목록 + "새로운 그룹 만들기" 카드
                 GroupListSection(
                     groups = groupList,
                     isLoading = isLoading,
@@ -193,6 +205,7 @@ private fun GroupListSection(
             )
         }
 
+        // 하단 "새로운 그룹 만들기" 카드
         item {
             Spacer(modifier = Modifier.height(8.dp))
             AddGroupCard(
@@ -210,8 +223,6 @@ private fun GroupCard(
     onClick: () -> Unit,
 ) {
     val memberCount = group.memberUids.size
-    val inProgressCount = 0
-    val completionRatio = 0f
 
     Card(
         modifier = Modifier
@@ -228,6 +239,7 @@ private fun GroupCard(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
+            // 상단: 그룹 이름 + 멤버 수
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -260,6 +272,7 @@ private fun GroupCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // 중간: 진행 Task 정보
             Text(
                 text = "${inProgressCount}개 진행 중",
                 style = MaterialTheme.typography.bodySmall,
@@ -268,6 +281,7 @@ private fun GroupCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
+            // 진행률 바
             LinearProgressIndicator(
                 progress = completionRatio,
                 modifier = Modifier
@@ -280,6 +294,7 @@ private fun GroupCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            // 완료율 텍스트 (오른쪽 정렬 느낌)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
@@ -345,7 +360,6 @@ private fun AddGroupCard(
     }
 }
 
-// 기존 함수 유지 (현재 화면에서는 호출되지 않음)
 @Composable
 private fun GroupBottomNavBar(
     onHomeClick: () -> Unit,
@@ -375,7 +389,7 @@ private fun GroupBottomNavBar(
                 Icon(
                     imageVector = Icons.Filled.Group,
                     contentDescription = "Groups",
-                    tint = TaskFlowGreen
+                    tint = TaskFlowGreen // 현재 선택된 탭
                 )
             }
             IconButton(onClick = onProfileClick) {

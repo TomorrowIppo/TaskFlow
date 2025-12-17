@@ -46,20 +46,15 @@ fun AddGroupScreen(
     val groupError by groupViewModel.error.collectAsState()
     val isSuccess by groupViewModel.groupCreationSuccess.collectAsState()
 
-    val isCreateEnabled = groupName.isNotBlank()
-
-    // 💡 Side Effect: Group 생성 성공 시 Navigaton
-    LaunchedEffect(groupViewModel.groupCreationSuccess) {
-        groupViewModel.groupCreationSuccess.collect { isSuccess ->
-            if (isSuccess) {
-                onTaskCreated()
-                groupViewModel.resetGroupCreationStatus()
-            }
+    LaunchedEffect(isSuccess) {
+        if (isSuccess) {
+            onTaskCreated()
+            groupViewModel.resetGroupCreationStatus()
         }
     }
 
-    // ✅ [수정] 이 화면은 MainAppNavHost에서 bottomBar를 숨기도록 처리됨.
-    // 따라서 Screen 내부 Scaffold의 bottomBar는 제거한다.
+    val canCreate = groupName.trim().isNotBlank() && !isLoading
+
     Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
@@ -116,7 +111,7 @@ fun AddGroupScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 멤버 이메일 추가 영역
+                // 멤버 초대
                 Text(
                     text = "멤버 이메일로 초대",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
@@ -243,8 +238,8 @@ fun AddGroupScreen(
                 Button(
                     onClick = {
                         groupViewModel.createGroup(
-                            name = groupName,
-                            description = groupDescription
+                            name = groupName.trim(),
+                            description = groupDescription.trim()
                         )
                         // invitedEmails는 UI 표시용으로만 유지 (명세대로 실제 초대는 이후 흐름에서 처리)
                     },
@@ -342,29 +337,4 @@ private fun TaskFlowInputBox(
             }
         }
     )
-}
-
-@Composable
-private fun AddGroupTopBar(
-    onBackClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBackClick) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "뒤로가기"
-            )
-        }
-        Text(
-            text = "TaskFlow",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold
-            )
-        )
-    }
 }

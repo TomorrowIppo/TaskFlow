@@ -106,7 +106,6 @@ fun AddTaskScreen(
 
     val isCreateEnabled = taskName.isNotBlank() && selectedGroupId.isNotBlank()
 
-    // ✅ bottomBar 관련 수정 없음 (MainActivity에서 이 route는 bottomBar 숨김 대상)
     Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
@@ -357,9 +356,10 @@ fun AddTaskScreen(
                         taskViewModel.createTask(
                             groupId = groupId,
                             title = taskName,
-                            assignedToUid = "",
-                            dueDate = dueDate,
-                            priority = 2
+                            assignedToUid = "", // TODO: 추후 멤버 선택 UI 붙이기
+                            dueDate = finalDueDate,
+                            priority = selectedPriority,
+                            precursorTaskId = selectedPrecursorTask?.taskId
                         )
 
                         onTaskCreated()
@@ -387,6 +387,9 @@ fun AddTaskScreen(
     }
 }
 
+/**
+ * Figma 스타일에 맞춘 공통 입력 박스 (BasicTextField 기반)
+ */
 @Composable
 private fun TaskFlowInputBox(
     value: String,
@@ -421,4 +424,97 @@ private fun TaskFlowInputBox(
             }
         }
     )
+}
+
+// -------------------------------------------------------------
+// Date/Time Picker (너가 준 “Box + Spacer overlay” 패턴 그대로)
+// -------------------------------------------------------------
+
+@Composable
+private fun DateSelectField(
+    selectedDate: Date?,
+    modifier: Modifier,
+    onDateSelected: (Date?) -> Unit
+) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    selectedDate?.let { calendar.time = it }
+
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            val newCalendar = Calendar.getInstance().apply {
+                time = selectedDate ?: Date()
+                set(year, month, dayOfMonth)
+            }
+            onDateSelected(newCalendar.time)
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
+
+    val dateText = selectedDate?.let {
+        SimpleDateFormat("yyyy.MM.dd", Locale.getDefault()).format(it)
+    } ?: "날짜"
+
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = dateText,
+            onValueChange = {},
+            leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { datePickerDialog.show() }
+        )
+    }
+}
+
+@Composable
+private fun TimeSelectField(
+    selectedTime: Date?,
+    modifier: Modifier,
+    onTimeSelected: (Date?) -> Unit
+) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    selectedTime?.let { calendar.time = it }
+
+    val timePickerDialog = TimePickerDialog(
+        context,
+        { _, hourOfDay, minute ->
+            val newCalendar = Calendar.getInstance().apply {
+                time = selectedTime ?: Date()
+                set(Calendar.HOUR_OF_DAY, hourOfDay)
+                set(Calendar.MINUTE, minute)
+            }
+            onTimeSelected(newCalendar.time)
+        },
+        calendar.get(Calendar.HOUR_OF_DAY),
+        calendar.get(Calendar.MINUTE),
+        true
+    )
+
+    val timeText = selectedTime?.let {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(it)
+    } ?: "시간"
+
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = timeText,
+            onValueChange = {},
+            leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null) },
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { timePickerDialog.show() }
+        )
+    }
 }
