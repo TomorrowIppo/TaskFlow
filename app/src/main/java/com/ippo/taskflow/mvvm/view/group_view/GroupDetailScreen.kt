@@ -20,10 +20,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 // 🚨🚨🚨 [필수 가정 및 Import] 🚨🚨🚨
-// 이 경로들은 프로젝트 구조에 맞춰 수정이 필요할 수 있습니다.
 import com.ippo.taskflow.mvvm.model.Task
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
@@ -36,13 +34,12 @@ val LightGreyBackground = Color(0xFFF5F5F5)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
-    // 🚨 [수정된 시그니처] MainActivity의 NavHost 요구 사항 충족
     groupId: String,
-    groupViewModel: GroupViewModel, // NavHost에서 주입됨
-    taskViewModel: TaskViewModel,   // NavHost에서 주입됨
+    groupViewModel: GroupViewModel,
+    taskViewModel: TaskViewModel,
     onNavigateToAddTask: () -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToTaskDetail: (String) -> Unit // 🚨 추가: Task ID를 인자로 받는 상세 화면 이동 콜백
+    onNavigateToTaskDetail: (String) -> Unit
 ) {
     // 1. ViewModel 상태 수집
     val taskList by taskViewModel.taskList.collectAsState(initial = emptyList())
@@ -55,7 +52,7 @@ fun GroupDetailScreen(
     // Side Effect: 화면 진입 및 groupId 변경 시 데이터 로드 트리거
     LaunchedEffect(groupId) {
         if (groupId.isNotBlank()) {
-            taskViewModel.loadTasks(groupId) // 해당 그룹의 Task 로드
+            taskViewModel.loadTasks(groupId)
         }
     }
 
@@ -66,11 +63,8 @@ fun GroupDetailScreen(
                 message = error!!,
                 actionLabel = "확인"
             )
-            // 오류 메시지 초기화 (선택 사항)
-            // taskViewModel.clearError()
         }
     }
-
 
     Scaffold(
         topBar = {
@@ -78,7 +72,11 @@ fun GroupDetailScreen(
                 title = { Text("Group Detail", color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기", tint = Color.Black)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "뒤로가기",
+                            tint = Color.Black
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -94,11 +92,11 @@ fun GroupDetailScreen(
                 Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 24.sp)
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }, // 🚨 SnackbarHostState 사용
-        bottomBar = { SimpleBottomNavBar() } // 하단 메뉴바
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+        // ✅ [수정] bottomBar 제거: 하단바는 MainActivity(MainAppNavHost)에서 전역 관리
+        // 이 화면은 shouldShowBottomBar()에서 숨김 대상(route startsWith("groupDetail"))
     ) { padding ->
 
-        // --- UI 콘텐츠 시작 ---
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -111,25 +109,23 @@ fun GroupDetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 에러 메시지 표시 (Snackbar로 대체 가능하지만 일단 유지)
-            // if (!error.isNullOrBlank()) {
-            //     Text(error!!, color = Color.Red, style = MaterialTheme.typography.bodySmall)
-            //     Spacer(modifier = Modifier.height(8.dp))
-            // }
-
             Spacer(modifier = Modifier.height(24.dp))
             Text("Tasks (${taskList.size})", fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
 
             // 2. Task List
             if (isLoading) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             } else if (taskList.isNotEmpty()) {
                 LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     items(taskList, key = { it.taskId }) { task ->
-                        // 🚨 TaskListItem에 클릭 이벤트와 삭제 콜백 연결
                         TaskListItem(
                             task = task,
                             onTaskClick = { clickedTaskId ->
@@ -143,7 +139,12 @@ fun GroupDetailScreen(
                     }
                 }
             } else {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
                     Text("이 그룹에는 할당된 Task가 없습니다.", color = Color.Gray)
                 }
             }
@@ -165,24 +166,21 @@ fun GroupDetailScreen(
     }
 }
 
-// 🚨 수정된 Task List Item (클릭 및 삭제 기능 포함)
 @Composable
 private fun TaskListItem(
     task: Task,
-    onTaskClick: (String) -> Unit, // Task 클릭 시 상세 이동 콜백
-    onDeleteTask: (String) -> Unit // Task 삭제 버튼 클릭 콜백
+    onTaskClick: (String) -> Unit,
+    onDeleteTask: (String) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onTaskClick(task.taskId) } // 🚨 Row 전체를 클릭 가능하게 만듭니다.
+            .clickable { onTaskClick(task.taskId) }
             .padding(vertical = 12.dp, horizontal = 0.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween // 🚨 아이템을 양 끝으로 분산
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // 왼쪽 (상태 + 제목)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Task Status Indicator Placeholder
             Box(
                 modifier = Modifier
                     .size(8.dp)
@@ -197,10 +195,9 @@ private fun TaskListItem(
             )
         }
 
-        // 오른쪽 (삭제 버튼)
         IconButton(
-            onClick = { onDeleteTask(task.taskId) }, // 🚨 삭제 콜백 호출
-            modifier = Modifier.size(36.dp) // 클릭 영역 확보
+            onClick = { onDeleteTask(task.taskId) },
+            modifier = Modifier.size(36.dp)
         ) {
             Icon(
                 Icons.Default.Close,
@@ -212,7 +209,6 @@ private fun TaskListItem(
     }
 }
 
-// 사용자 정의 컴포넌트 (변경 없음)
 @Composable
 private fun ActionButton(
     text: String,
@@ -242,7 +238,7 @@ private fun ActionButton(
 
 @Composable
 private fun SimpleBottomNavBar() {
-    val NavBarColor = Color(0xFFB9F6CA) // TaskFlowLightGreen과 유사
+    val NavBarColor = Color(0xFFB9F6CA)
     val NavItemColor = PrimaryGreen
 
     Surface(
@@ -258,7 +254,6 @@ private fun SimpleBottomNavBar() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Placeholder Icons for Home, Group, Profile
             Box(modifier = Modifier.size(32.dp).background(NavItemColor, CircleShape))
             Box(modifier = Modifier.size(48.dp).background(NavItemColor, RoundedCornerShape(8.dp)))
             Box(modifier = Modifier.size(32.dp).background(NavItemColor, CircleShape))

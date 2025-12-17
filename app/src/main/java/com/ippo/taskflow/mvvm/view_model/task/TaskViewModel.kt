@@ -273,4 +273,36 @@ class TaskViewModel : ViewModel() {
     fun setTaskFilter(filter: TaskFilter) {
         _currentFilter.value = filter
     }
+
+    fun loadMyTasks(uid: String) {
+        _isLoading.value = true
+        _error.value = null
+        taskListener?.remove()
+
+        if (uid.isBlank()) {
+            _taskList.value = emptyList()
+            _isLoading.value = false
+            return
+        }
+
+        taskListener = taskCollection
+            .whereEqualTo("assignedToUid", uid)
+            .orderBy("dueDate") // dueDate null 많은 경우 createdAt으로 바꿔도 됨
+            .addSnapshotListener { snapshot, e ->
+                _isLoading.value = false
+
+                if (e != null) {
+                    _error.value = "내 작업 로드 실패: ${e.message}"
+                    _taskList.value = emptyList()
+                    return@addSnapshotListener
+                }
+
+                val tasks = snapshot?.toObjects(Task::class.java) ?: emptyList()
+                _taskList.value = tasks
+
+                // (선택) 프로필에서도 전체 완료율 쓰고 싶으면 유지 가능
+                calculateCompletionPercentage(tasks)
+            }
+    }
 }
+

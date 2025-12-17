@@ -48,7 +48,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-
 @Composable
 fun AddTaskScreen(
     initialGroupId: String,
@@ -90,6 +89,7 @@ fun AddTaskScreen(
 
     val isCreateEnabled = taskName.isNotBlank() && selectedGroupId != null
 
+    // ✅ bottomBar 관련 수정 없음 (MainActivity에서 이 route는 bottomBar 숨김 대상)
     Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
@@ -358,14 +358,12 @@ fun AddTaskScreen(
                     onClick = {
                         val groupId = selectedGroupId ?: return@Button
 
-                        // description은 현재 TaskViewModel 시그니처에 없어서,
-                        // 우선 title, groupId, dueDate, priority만 반영.
                         taskViewModel.createTask(
                             groupId = groupId,
                             title = taskName,
-                            assignedToUid = "", // 현재는 할당 사용자 선택 UI가 없으므로 빈 값
+                            assignedToUid = "",
                             dueDate = dueDate,
-                            priority = 2 // 기본 우선순위
+                            priority = 2
                         )
 
                         onTaskCreated()
@@ -393,9 +391,6 @@ fun AddTaskScreen(
     }
 }
 
-/**
- * Figma 스타일에 맞춘 공통 입력 박스 (BasicTextField 기반)
- */
 @Composable
 private fun TaskFlowInputBox(
     value: String,
@@ -437,6 +432,3 @@ private fun TaskFlowInputBox(
         }
     )
 }
-
-
-

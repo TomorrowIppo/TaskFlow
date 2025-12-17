@@ -80,13 +80,6 @@ fun MainScreen(
     // ❌ 제거된 코드: MainScreen에서 완료율을 직접 계산하던 로직
 
     Scaffold(
-        bottomBar = {
-            MainBottomNavBar(
-                onHomeClick = { /* 현재 화면이므로 아무 동작 없음 */ },
-                onGroupsClick = onNavigateToGroups,
-                onProfileClick = onNavigateToProfile
-            )
-        }
     ) { innerPadding ->
         Surface(
             modifier = Modifier
@@ -424,47 +417,4 @@ private fun formatDueDate(date: Date?): String? {
     // Locale을 사용하는 SimpleDateFormat은 Compose Preview 등에서 오류를 줄입니다.
     val formatter = SimpleDateFormat("a hh:mm", Locale.getDefault())
     return formatter.format(date)
-}
-
-@Composable
-private fun MainBottomNavBar(
-    onHomeClick: () -> Unit,
-    onGroupsClick: () -> Unit,
-    onProfileClick: () -> Unit,
-) {
-    Surface(
-        tonalElevation = 8.dp,
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(TaskFlowLightGreen)
-                .padding(horizontal = 40.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onHomeClick) {
-                Icon(
-                    imageVector = Icons.Filled.Home,
-                    contentDescription = "Home",
-                    tint = TaskFlowGreen
-                )
-            }
-            IconButton(onClick = onGroupsClick) {
-                Icon(
-                    imageVector = Icons.Filled.Group,
-                    contentDescription = "Groups",
-                    tint = Color.Black
-                )
-            }
-            IconButton(onClick = onProfileClick) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = "Profile",
-                    tint = Color.Black
-                )
-            }
-        }
-    }
 }
