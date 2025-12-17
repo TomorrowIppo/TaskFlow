@@ -1,267 +1,320 @@
 package com.ippo.taskflow.mvvm.view.group_view
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable // 🚨 추가: Task 클릭 이벤트 처리
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-
-// 🚨🚨🚨 [필수 가정 및 Import] 🚨🚨🚨
-// 이 경로들은 프로젝트 구조에 맞춰 수정이 필요할 수 있습니다.
+import com.ippo.taskflow.activity.ui.theme.*
 import com.ippo.taskflow.mvvm.model.Task
+import com.ippo.taskflow.mvvm.model.TaskStatus
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskMetrics
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
-import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel // AuthViewModel은 현재 사용되지 않으나, 이전 코드에 남아있어 포함
+import java.util.Locale
 
-// 🎨 색상 상수 정의 (다른 파일에서 가져와야 하지만, 컴파일을 위해 임시 정의)
-val PrimaryGreen = Color(0xFF69F0AE)
-val LightGreyBackground = Color(0xFFF5F5F5)
+enum class GroupDetailTab {
+    FLOW, LIST
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
-    // 🚨 [수정된 시그니처] MainActivity의 NavHost 요구 사항 충족
     groupId: String,
-    groupViewModel: GroupViewModel, // NavHost에서 주입됨
-    taskViewModel: TaskViewModel,   // NavHost에서 주입됨
-    onNavigateToAddTask: () -> Unit,
+    groupViewModel: GroupViewModel,
+    taskViewModel: TaskViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToTaskDetail: (String) -> Unit // 🚨 추가: Task ID를 인자로 받는 상세 화면 이동 콜백
+    onNavigateToAddTask: () -> Unit,
+    onNavigateToTaskDetail: (String) -> Unit
 ) {
-    // 1. ViewModel 상태 수집
-    val taskList by taskViewModel.taskList.collectAsState(initial = emptyList())
-    val isLoading by taskViewModel.isLoading.collectAsState(initial = false)
-    val error by taskViewModel.error.collectAsState(initial = null)
+    val group by groupViewModel.currentGroup.collectAsState()
+    val taskList by taskViewModel.taskList.collectAsState()
+    val isLoading by taskViewModel.isLoading.collectAsState()
+    val metrics by taskViewModel.taskMetrics.collectAsState()
 
-    // Snackbar 상태를 위한 State
-    val snackbarHostState = remember { SnackbarHostState() }
+    var selectedTab by remember { mutableStateOf(GroupDetailTab.FLOW) }
 
-    // Side Effect: 화면 진입 및 groupId 변경 시 데이터 로드 트리거
     LaunchedEffect(groupId) {
-        if (groupId.isNotBlank()) {
-            taskViewModel.loadTasks(groupId) // 해당 그룹의 Task 로드
-        }
+        groupViewModel.loadGroupDetail(groupId)
+        taskViewModel.loadTasks(groupId)
     }
-
-    // Side Effect: Task 삭제 후 오류 발생 시 Snackbar 표시
-    LaunchedEffect(error) {
-        if (!error.isNullOrBlank()) {
-            snackbarHostState.showSnackbar(
-                message = error!!,
-                actionLabel = "확인"
-            )
-            // 오류 메시지 초기화 (선택 사항)
-            // taskViewModel.clearError()
-        }
-    }
-
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Group Detail", color = Color.Black) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기", tint = Color.Black)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
+                title = { Text(text = group?.name ?: "그룹 로딩 중...", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기") } },
+                actions = { IconButton(onClick = onNavigateToAddTask) { Icon(Icons.Default.Add, contentDescription = "추가") } }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToAddTask,
-                containerColor = PrimaryGreen
-            ) {
-                Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 24.sp)
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }, // 🚨 SnackbarHostState 사용
-        bottomBar = { SimpleBottomNavBar() } // 하단 메뉴바
-    ) { padding ->
+        }
+    ) { paddingValues ->
+        if (isLoading && group == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            return@Scaffold
+        }
 
-        // --- UI 콘텐츠 시작 ---
         Column(
             modifier = Modifier
-                .padding(padding)
-                .padding(horizontal = 20.dp, vertical = 24.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(LightGreyBackground)
         ) {
+            TabSelectionBar(selectedTab) { selectedTab = it }
 
-            Text("Group ID: ${groupId.take(8)}...", style = MaterialTheme.typography.titleLarge)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 에러 메시지 표시 (Snackbar로 대체 가능하지만 일단 유지)
-            // if (!error.isNullOrBlank()) {
-            //     Text(error!!, color = Color.Red, style = MaterialTheme.typography.bodySmall)
-            //     Spacer(modifier = Modifier.height(8.dp))
-            // }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("Tasks (${taskList.size})", fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 2. Task List
-            if (isLoading) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (taskList.isNotEmpty()) {
-                LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    items(taskList, key = { it.taskId }) { task ->
-                        // 🚨 TaskListItem에 클릭 이벤트와 삭제 콜백 연결
-                        TaskListItem(
-                            task = task,
-                            onTaskClick = { clickedTaskId ->
-                                onNavigateToTaskDetail(clickedTaskId)
-                            },
-                            onDeleteTask = { taskIdToDelete ->
-                                taskViewModel.deleteTask(taskIdToDelete)
+            Crossfade(targetState = selectedTab, label = "TabSwitch") { tab ->
+                when (tab) {
+                    GroupDetailTab.FLOW -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            item { TaskMetricsCard(metrics) }
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text("플로우차트 미리보기", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                                    val taskDependencyMap = createTaskDependencyMap(taskList)
+                                    TaskFlowChartVertical(taskList, taskDependencyMap, onNavigateToTaskDetail)
+                                }
                             }
-                        )
-                        Divider(color = Color.LightGray.copy(alpha = 0.5f))
+                            item { MyTaskQuickAccess(onNavigateToAddTask) }
+                        }
+                    }
+                    GroupDetailTab.LIST -> {
+                        TaskListScreen(taskList, onNavigateToTaskDetail, onNavigateToAddTask)
                     }
                 }
-            } else {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Text("이 그룹에는 할당된 Task가 없습니다.", color = Color.Gray)
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// ⭐️ [리팩토링] 세로 트리 그래프 컴포넌트 (에러 수정 완료)
+// -------------------------------------------------------------
+
+@Composable
+fun TaskFlowChartVertical(
+    tasks: List<Task>,
+    taskDependencyMap: Map<String?, List<Task>>,
+    onNavigateToTaskDetail: (String) -> Unit
+) {
+    val rootTasks = taskDependencyMap[null] ?: emptyList()
+    // 세로형 트리는 아래로 길어질 뿐만 아니라 자식이 많으면 옆으로도 길어지므로 가로 스크롤 추가
+    val horizontalScrollState = rememberScrollState()
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 300.dp, max = 600.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        if (tasks.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Task가 없습니다.", color = Color.Gray)
+            }
+            return@Card
+        }
+
+        // 가로 스크롤만 적용 (세로 스크롤은 부모 LazyColumn이 담당)
+        Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState)) {
+            Column(
+                modifier = Modifier.padding(20.dp).wrapContentWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                rootTasks.forEach { rootTask ->
+                    TaskTreeColumn(rootTask, taskDependencyMap, onNavigateToTaskDetail)
                 }
             }
+        }
+    }
+}
 
-            // 4. Group Action Button (예시)
+@Composable
+fun TaskTreeColumn(
+    task: Task,
+    taskDependencyMap: Map<String?, List<Task>>,
+    onNavigateToTaskDetail: (String) -> Unit
+) {
+    val children = taskDependencyMap[task.taskId] ?: emptyList()
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // 1. 부모 노드 (디자인 통일)
+        TaskNodeCardInFlow(task) { onNavigateToTaskDetail(task.taskId) }
+
+        if (children.isNotEmpty()) {
+            // 2. 부모-자식 연결 세로선
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(20.dp)
+                    .background(Color.LightGray.copy(alpha = 0.6f))
+            )
+
+            // 3. 자식들을 가로로 나열
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
-                horizontalArrangement = Arrangement.Center
+                modifier = Modifier.wrapContentWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                ActionButton(
-                    text = "그룹 나가기",
-                    icon = Icons.Default.Close,
-                    onClick = { /* Handle leave group */ },
-                    color = Color.Red,
-                    contentColor = Color.White
+                children.forEach { child ->
+                    TaskTreeColumn(child, taskDependencyMap, onNavigateToTaskDetail)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskNodeCardInFlow(task: Task, onClick: () -> Unit) {
+    val statusColor = when (task.status) {
+        TaskStatus.DONE -> Color(0xFF66BB6A)
+        TaskStatus.IN_PROGRESS -> Color(0xFF42A5F5)
+        TaskStatus.BLOCKED -> Color(0xFFEF5350)
+        else -> Color(0xFFBDBDBD)
+    }
+
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(140.dp).height(65.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 상단 상태 색상 바
+            Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(statusColor).align(Alignment.TopCenter))
+
+            Column(
+                modifier = Modifier.fillMaxSize().padding(8.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = task.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "우선순위: ${task.priority}",
+                    fontSize = 10.sp,
+                    color = Color.Gray
                 )
             }
         }
     }
 }
 
-// 🚨 수정된 Task List Item (클릭 및 삭제 기능 포함)
-@Composable
-private fun TaskListItem(
-    task: Task,
-    onTaskClick: (String) -> Unit, // Task 클릭 시 상세 이동 콜백
-    onDeleteTask: (String) -> Unit // Task 삭제 버튼 클릭 콜백
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onTaskClick(task.taskId) } // 🚨 Row 전체를 클릭 가능하게 만듭니다.
-            .padding(vertical = 12.dp, horizontal = 0.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween // 🚨 아이템을 양 끝으로 분산
-    ) {
-        // 왼쪽 (상태 + 제목)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Task Status Indicator Placeholder
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(if (task.isCompleted) PrimaryGreen else Color.Gray)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = task.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (task.isCompleted) FontWeight.Light else FontWeight.Normal
-            )
-        }
+// -------------------------------------------------------------
+// ⭐️ 데이터 매핑 및 보조 컴포넌트 (동일 유지)
+// -------------------------------------------------------------
 
-        // 오른쪽 (삭제 버튼)
-        IconButton(
-            onClick = { onDeleteTask(task.taskId) }, // 🚨 삭제 콜백 호출
-            modifier = Modifier.size(36.dp) // 클릭 영역 확보
-        ) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = "Task 삭제",
-                tint = Color.Red.copy(alpha = 0.7f),
-                modifier = Modifier.size(20.dp)
-            )
+fun createTaskDependencyMap(tasks: List<Task>): Map<String?, List<Task>> {
+    val map = mutableMapOf<String?, MutableList<Task>>()
+    for (task in tasks) {
+        val key = if (task.precursorTaskId.isNullOrBlank()) null else task.precursorTaskId
+        map.getOrPut(key) { mutableListOf() }.add(task)
+    }
+    return map
+}
+
+@Composable
+fun TaskMetricsCard(metrics: TaskMetrics) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Row(modifier = Modifier.padding(20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            MetricItem("할 일", metrics.todo, AccentBlue)
+            MetricItem("완료", metrics.done, PrimaryGreen)
+            MetricItem("막힘", metrics.blocked, Color.Red)
         }
     }
 }
 
-// 사용자 정의 컴포넌트 (변경 없음)
 @Composable
-private fun ActionButton(
-    text: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
-    color: Color,
-    contentColor: Color = Color.White,
-    enabled: Boolean = true
-) {
+fun MetricItem(label: String, value: Int, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = value.toString(), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = color)
+        Text(text = label, fontSize = 12.sp, color = Color.Gray)
+    }
+}
+
+@Composable
+fun MyTaskQuickAccess(onNavigateToAddTask: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("내 담당 Task 보기", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            FloatingActionButton(onClick = onNavigateToAddTask, containerColor = Color(0xFF5C6BC0), contentColor = Color.White, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.Add, contentDescription = null)
+            }
+        }
+    }
+}
+
+@Composable
+fun TabSelectionBar(selectedTab: GroupDetailTab, onTabSelected: (GroupDetailTab) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TabButton("Flow", selectedTab == GroupDetailTab.FLOW) { onTabSelected(GroupDetailTab.FLOW) }
+        TabButton("List", selectedTab == GroupDetailTab.LIST) { onTabSelected(GroupDetailTab.LIST) }
+    }
+}
+
+@Composable
+fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        enabled = enabled,
-        shape = RoundedCornerShape(6.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = color,
-            contentColor = contentColor
-        ),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = text, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(text)
-        }
-    }
+        colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) PrimaryGreen else Color.White, contentColor = if (isSelected) Color.White else Color.Gray),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.height(40.dp)
+    ) { Text(text) }
 }
 
 @Composable
-private fun SimpleBottomNavBar() {
-    val NavBarColor = Color(0xFFB9F6CA) // TaskFlowLightGreen과 유사
-    val NavItemColor = PrimaryGreen
-
-    Surface(
-        tonalElevation = 8.dp,
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(NavBarColor)
-                .padding(horizontal = 40.dp, vertical = 10.dp)
-                .height(56.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Placeholder Icons for Home, Group, Profile
-            Box(modifier = Modifier.size(32.dp).background(NavItemColor, CircleShape))
-            Box(modifier = Modifier.size(48.dp).background(NavItemColor, RoundedCornerShape(8.dp)))
-            Box(modifier = Modifier.size(32.dp).background(NavItemColor, CircleShape))
+fun TaskListScreen(tasks: List<Task>, onNavigateToTaskDetail: (String) -> Unit, onNavigateToAddTask: () -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(tasks, key = { it.taskId }) { task ->
+            Card(
+                onClick = { onNavigateToTaskDetail(task.taskId) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(1.dp)
+            ) {
+                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(Color(0xFFBDBDBD), RoundedCornerShape(5.dp)))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(task.title, fontWeight = FontWeight.Medium)
+                }
+            }
         }
     }
 }
