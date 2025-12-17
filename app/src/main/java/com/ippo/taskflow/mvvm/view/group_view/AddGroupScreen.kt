@@ -1,7 +1,6 @@
 package com.ippo.taskflow.mvvm.view.group_view
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -24,7 +22,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
-import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 
@@ -46,8 +43,19 @@ fun AddGroupScreen(
     val groupError by groupViewModel.error.collectAsState()
     val isSuccess by groupViewModel.groupCreationSuccess.collectAsState()
 
-    LaunchedEffect(isSuccess) {
-        if (isSuccess) {
+    // ✅ [추가] 그룹 생성 직후 groupId 받아오기 (초대 처리용)
+    val createdGroupId by groupViewModel.createdGroupId.collectAsState() // ✅ [추가]
+
+    // ✅ [수정] 그룹 생성 성공 + groupId 확보되면, invitedEmails를 실제 memberUids에 추가
+    LaunchedEffect(isSuccess, createdGroupId) { // ✅ [수정]
+        if (isSuccess && !createdGroupId.isNullOrBlank()) {
+            val gid = createdGroupId!!
+
+            // ✅ [추가] 초대 이메일들을 실제 멤버로 추가
+            invitedEmails.forEach { email ->
+                groupViewModel.inviteMemberByEmail(gid, email)
+            }
+
             onTaskCreated()
             groupViewModel.resetGroupCreationStatus()
         }
@@ -241,7 +249,7 @@ fun AddGroupScreen(
                             name = groupName.trim(),
                             description = groupDescription.trim()
                         )
-                        // invitedEmails는 UI 표시용으로만 유지 (명세대로 실제 초대는 이후 흐름에서 처리)
+                        // ✅ 이제는 "생성 성공 후" LaunchedEffect에서 invitedEmails를 실제 멤버로 추가함
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -298,7 +306,6 @@ private fun AddGroupTopBar(
         )
     }
 }
-
 
 @Composable
 private fun TaskFlowInputBox(
