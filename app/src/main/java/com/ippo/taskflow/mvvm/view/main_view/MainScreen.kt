@@ -1,6 +1,7 @@
 package com.ippo.taskflow.mvvm.view.main_view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,14 +18,21 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,18 +43,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
+import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
 import com.ippo.taskflow.mvvm.model.Task
+import com.ippo.taskflow.mvvm.model.TaskStatus
+import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.runtime.collectAsState
-import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
-import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
-import com.ippo.taskflow.mvvm.model.TaskStatus
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     authViewModel: AuthViewModel,
@@ -63,9 +70,12 @@ fun MainScreen(
     val isLoadingTasks by taskViewModel.isLoading.collectAsState()
     val taskError by taskViewModel.error.collectAsState()
 
-    // ⭐️ 핵심 수정: ViewModel에서 계산된 완료율을 직접 가져옵니다. (View에서는 계산 로직 제거)
+    // ⭐️ ViewModel에서 계산된 완료율 사용
     val completionPercentage by taskViewModel.completionPercentage.collectAsState()
 
+    // ✅ Task 클릭 시 바텀시트로 상세 표시
+    var selectedTask by remember { mutableStateOf<Task?>(null) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // 이름: User 프로필 → FirebaseUser.displayName 순으로 우선 사용
     val userName = when {
@@ -76,8 +86,6 @@ fun MainScreen(
 
     // 사진 URL (없으면 null → 기본 아바타 렌더링)
     val photoUrl = firebaseUser?.photoUrl?.toString()
-
-    // ❌ 제거된 코드: MainScreen에서 완료율을 직접 계산하던 로직
 
     Scaffold(
         bottomBar = {
@@ -108,7 +116,6 @@ fun MainScreen(
 
                 // 진행률 대시보드
                 ProgressDashboard(
-                    // ⭐️ 수정: ViewModel에서 받은 completionPercentage 값을 사용
                     completionPercentage = completionPercentage
                 )
 
@@ -128,12 +135,24 @@ fun MainScreen(
                     isLoading = isLoadingTasks,
                     errorMessage = taskError,
                     onTaskStatusToggle = { task ->
-                        // TaskStatus가 Enum 타입이라고 가정하고 처리
                         val newStatus =
                             if (task.status == TaskStatus.DONE) TaskStatus.TODO.name else TaskStatus.DONE.name
                         taskViewModel.updateTaskStatus(task.taskId, newStatus)
+                    },
+                    onTaskClick = { task ->
+                        selectedTask = task
                     }
                 )
+            }
+        }
+
+        // ✅ Task 클릭 시 Quick Detail BottomSheet
+        if (selectedTask != null) {
+            ModalBottomSheet(
+                onDismissRequest = { selectedTask = null },
+                sheetState = sheetState
+            ) {
+                TaskQuickDetailSheet(task = selectedTask!!)
             }
         }
     }
@@ -146,8 +165,7 @@ private fun MainHeader(
     onSettingsClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -220,12 +238,9 @@ private fun ProgressDashboard(
     completionPercentage: Int,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = TaskFlowGreen
-        ),
+        colors = CardDefaults.cardColors(containerColor = TaskFlowGreen),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
@@ -235,9 +250,7 @@ private fun ProgressDashboard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier.weight(1.2f)
-            ) {
+            Column(modifier = Modifier.weight(1.2f)) {
                 Text(
                     text = "오늘의 Task가 거의\n완료됐어요!",
                     color = Color.White,
@@ -249,14 +262,11 @@ private fun ProgressDashboard(
                 Spacer(modifier = Modifier.height(12.dp))
                 Card(
                     shape = RoundedCornerShape(50),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.White
-                    )
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Text(
                         text = "TaskFlow",
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         color = TaskFlowGreen,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -266,8 +276,7 @@ private fun ProgressDashboard(
             Spacer(modifier = Modifier.width(12.dp))
 
             Box(
-                modifier = Modifier
-                    .size(90.dp),
+                modifier = Modifier.size(90.dp),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(
@@ -294,6 +303,7 @@ private fun TaskListSection(
     isLoading: Boolean,
     errorMessage: String?,
     onTaskStatusToggle: (Task) -> Unit,
+    onTaskClick: (Task) -> Unit,
 ) {
     if (isLoading) {
         Box(
@@ -338,7 +348,8 @@ private fun TaskListSection(
         items(tasks, key = { it.taskId }) { task ->
             TaskCard(
                 task = task,
-                onToggleStatus = { onTaskStatusToggle(task) }
+                onToggleStatus = { onTaskStatusToggle(task) },
+                onClick = { onTaskClick(task) }
             )
         }
     }
@@ -348,14 +359,14 @@ private fun TaskListSection(
 private fun TaskCard(
     task: Task,
     onToggleStatus: () -> Unit,
+    onClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -364,7 +375,7 @@ private fun TaskCard(
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 왼쪽 아이콘(카테고리 대신 Task 아이콘)
+            // 왼쪽 아이콘
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -372,22 +383,15 @@ private fun TaskCard(
                     .background(TaskFlowLightGreen),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "📌",
-                    fontSize = 20.sp
-                )
+                Text(text = "📌", fontSize = 20.sp)
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = task.title.ifBlank { "제목 없음" },
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -407,7 +411,6 @@ private fun TaskCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             IconButton(onClick = onToggleStatus) {
-                // ⭐️ 수정: task.status를 TaskStatus Enum과 직접 비교하도록 가정하고 사용
                 val isDone = task.status == TaskStatus.DONE
                 Icon(
                     imageVector = if (isDone) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
@@ -419,10 +422,60 @@ private fun TaskCard(
     }
 }
 
+@Composable
+private fun TaskQuickDetailSheet(task: Task) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(20.dp)
+    ) {
+        Text(
+            text = task.title.ifBlank { "제목 없음" },
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "상태: ${task.status.value} • 우선순위 ${task.priority}",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        val dueText = formatDateTime(task.dueDate)
+        val createdText = formatDateTime(task.createdAt)
+
+        if (dueText != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = "마감: $dueText", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        }
+        if (createdText != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = "생성: $createdText", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Text(text = "설명", fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = task.description.ifBlank { "설명이 없습니다." },
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
 private fun formatDueDate(date: Date?): String? {
     if (date == null) return null
-    // Locale을 사용하는 SimpleDateFormat은 Compose Preview 등에서 오류를 줄입니다.
     val formatter = SimpleDateFormat("a hh:mm", Locale.getDefault())
+    return formatter.format(date)
+}
+
+private fun formatDateTime(date: Date?): String? {
+    if (date == null) return null
+    val formatter = SimpleDateFormat("yyyy.MM.dd (E) a hh:mm", Locale.getDefault())
     return formatter.format(date)
 }
 
