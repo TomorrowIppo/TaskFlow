@@ -48,7 +48,6 @@ fun SettingScreen(
         onLogout = {
             if (!isLoading) {
                 authViewModel.signOut()
-                onNavigateToLogin()
             }
         }
     )

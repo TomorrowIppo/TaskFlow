@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
+import java.util.Calendar
 
 data class TaskMetrics(
     val total: Int = 0,
@@ -36,6 +37,21 @@ class TaskViewModel : ViewModel() {
 
     private val _taskList = MutableStateFlow<List<Task>>(emptyList())
     val taskList: StateFlow<List<Task>> = _taskList
+
+    // [HOME 전용] 내 담당 Task 목록
+    private val _myTasks = MutableStateFlow<List<Task>>(emptyList())
+    val myTasks: StateFlow<List<Task>> = _myTasks
+
+    // [PROFILE 전용] 내 담당 전체 Task 목록 (달력/날짜팝업용)
+    private val _profileTasks = MutableStateFlow<List<Task>>(emptyList())
+    val profileTasks: StateFlow<List<Task>> = _profileTasks
+
+    private var profileTaskListener: ListenerRegistration? = null
+
+    private val _myCompletionPercentage = MutableStateFlow(0)
+    val myCompletionPercentage: StateFlow<Int> = _myCompletionPercentage
+
+    private var myTaskListener: ListenerRegistration? = null
 
     private val _selectedTask = MutableStateFlow<Task?>(null)
     val selectedTask: StateFlow<Task?> = _selectedTask
@@ -70,7 +86,11 @@ class TaskViewModel : ViewModel() {
         metricsListener?.remove()
         taskDetailListener?.remove()
 
-        // ✅ 그룹별 리스너들 정리
+        myTaskListener?.remove()
+
+        profileTaskListener?.remove()
+
+        // 그룹별 리스너들 정리
         groupMetricsListeners.values.forEach { it.remove() }
         groupMetricsListeners.clear()
         groupMetricsFlows.clear()
@@ -359,6 +379,84 @@ class TaskViewModel : ViewModel() {
 
                 // (선택) 프로필에서도 전체 완료율 쓰고 싶으면 유지 가능
                 calculateCompletionPercentage(tasks)
+            }
+    }
+
+    // [HOME 전용] "오늘" 내 담당 Task만 로드 (그룹 무관)
+// - DONE 포함(기본적으로 status 필터를 안 걸면 DONE도 같이 옴)
+// - taskList 건드리지 않음
+    fun loadMyAssignedTasks(uid: String) {
+        _isLoading.value = true
+        _error.value = null
+        myTaskListener?.remove()
+
+        if (uid.isBlank()) {
+            _myTasks.value = emptyList()
+            _myCompletionPercentage.value = 0
+            _isLoading.value = false
+            return
+        }
+
+        //오늘 00:00 ~ 내일 00:00
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val start = cal.time
+
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        val end = cal.time
+
+        myTaskListener = taskCollection
+            .whereEqualTo("assignedToUid", uid)
+            .whereGreaterThanOrEqualTo("dueDate", start)
+            .whereLessThan("dueDate", end)
+            .orderBy("dueDate", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, e ->
+                _isLoading.value = false
+
+                if (e != null) {
+                    _error.value = "오늘 내 담당 작업 로드 실패: ${e.message}"
+                    _myTasks.value = emptyList()
+                    _myCompletionPercentage.value = 0
+                    return@addSnapshotListener
+                }
+
+                val tasks = snapshot?.toObjects(Task::class.java) ?: emptyList()
+                _myTasks.value = tasks
+
+                val total = tasks.size
+                val done = tasks.count { it.status == TaskStatus.DONE }
+                _myCompletionPercentage.value =
+                    if (total == 0) 0 else ((done.toFloat() / total.toFloat()) * 100).toInt()
+            }
+    }
+
+    fun loadMyAssignedAllTasks(uid: String) {
+        _isLoading.value = true
+        _error.value = null
+        profileTaskListener?.remove()
+
+        if (uid.isBlank()) {
+            _profileTasks.value = emptyList()
+            _isLoading.value = false
+            return
+        }
+
+        profileTaskListener = taskCollection
+            .whereEqualTo("assignedToUid", uid)
+            .orderBy("dueDate", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, e ->
+                _isLoading.value = false
+
+                if (e != null) {
+                    _error.value = "프로필 작업 로드 실패: ${e.message}"
+                    _profileTasks.value = emptyList()
+                    return@addSnapshotListener
+                }
+
+                _profileTasks.value = snapshot?.toObjects(Task::class.java) ?: emptyList()
             }
     }
 }
