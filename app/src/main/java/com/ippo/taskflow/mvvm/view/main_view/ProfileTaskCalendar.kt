@@ -1,6 +1,8 @@
 package com.ippo.taskflow.mvvm.view.main_view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -17,24 +19,22 @@ import com.ippo.taskflow.mvvm.model.TaskStatus
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.roundToInt
-import androidx.compose.foundation.border
 
 @Composable
 fun ProfileTaskCalendar(
     tasks: List<Task>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDayClick: (year: Int, month0: Int, day: Int) -> Unit
 ) {
-    val cal = Calendar.getInstance() // 현재 날짜 기준
+    val cal = Calendar.getInstance()
     val year = cal.get(Calendar.YEAR)
-    val month0 = cal.get(Calendar.MONTH) // 0-based (0=Jan)
+    val month0 = cal.get(Calendar.MONTH)
     val todayDay = cal.get(Calendar.DAY_OF_MONTH)
 
-    // 이번 달 1일로 이동해서 시작 요일/일수 계산
     val firstCal = Calendar.getInstance().apply {
         set(Calendar.YEAR, year)
         set(Calendar.MONTH, month0)
         set(Calendar.DAY_OF_MONTH, 1)
-        // 시/분/초 통일(날짜 비교 안정화)
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
@@ -42,12 +42,9 @@ fun ProfileTaskCalendar(
     }
 
     val daysInMonth = firstCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-
-    // Calendar.DAY_OF_WEEK: 1=Sunday ... 7=Saturday
-    // UI는 일~토이므로 offset = (dayOfWeek - 1)
     val startOffset = firstCal.get(Calendar.DAY_OF_WEEK) - 1
-
-    val monthName = firstCal.getDisplayName(Calendar.MONTH, Calendar.LONG, Locale.KOREAN) ?: "${month0 + 1}월"
+    val monthName =
+        firstCal.getDisplayName(Calendar.MONTH, Calendar.LONG, Locale.KOREAN) ?: "${month0 + 1}월"
 
     Column(modifier = modifier) {
         Text(
@@ -57,7 +54,6 @@ fun ProfileTaskCalendar(
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        // 요일 헤더
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf("일", "월", "화", "수", "목", "금", "토").forEach { w ->
                 Text(
@@ -72,7 +68,7 @@ fun ProfileTaskCalendar(
         Spacer(modifier = Modifier.height(8.dp))
 
         val totalCells = startOffset + daysInMonth
-        val rows = (totalCells + 6) / 7 // 올림
+        val rows = (totalCells + 6) / 7
 
         var day = 1
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -87,24 +83,26 @@ fun ProfileTaskCalendar(
                         if (cellIndex < startOffset || day > daysInMonth) {
                             Spacer(modifier = Modifier.weight(1f).height(42.dp))
                         } else {
+                            val cellDay = day // 클릭/필터에서 쓸 날짜를 고정 캡처
+
                             val dayTasks = tasks.filter { t ->
                                 val due = t.dueDate ?: return@filter false
-                                val dcal = Calendar.getInstance().apply {
-                                    time = due
-                                }
+                                val dcal = Calendar.getInstance().apply { time = due }
                                 dcal.get(Calendar.YEAR) == year &&
                                         dcal.get(Calendar.MONTH) == month0 &&
-                                        dcal.get(Calendar.DAY_OF_MONTH) == day
+                                        dcal.get(Calendar.DAY_OF_MONTH) == cellDay
                             }
 
                             val completionRate = calculateCompletionRate(dayTasks)
 
                             CalendarDayCell(
-                                day = day,
-                                isToday = (day == todayDay),
+                                day = cellDay,
+                                isToday = (cellDay == todayDay),
                                 completionRate = completionRate,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                onClick = { onDayClick(year, month0, cellDay) } // day -> cellDay
                             )
+
                             day++
                         }
                     }
@@ -119,27 +117,28 @@ private fun CalendarDayCell(
     day: Int,
     isToday: Boolean,
     completionRate: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
     val bg = when {
-        completionRate == 0 -> Color(0xFFE0E0E0)         // task 없음 또는 0%
-        completionRate in 1..49 -> Color(0xFFB2DFDB)     // 낮음
-        completionRate in 50..99 -> Color(0xFF4DB6AC)    // 중간
-        completionRate == 100 -> Color(0xFF1E8A3B)       // 완료
-        else -> Color(0xFFE0E0E0)
+        completionRate == 0 -> Color(0xFFFFFFFF)
+        completionRate in 10..24 -> Color(0xFFC8E6C9)
+        completionRate in 25..49 -> Color(0xFFA5D6A7)
+        completionRate in 50..74 -> Color(0xFF66BB6A)
+        completionRate in 75..99 -> Color(0xFF388E3C)
+        completionRate == 100 -> Color(0xFF1B5E20)
+        else -> Color(0xFFE8F5E9)
     }
 
     val shape = RoundedCornerShape(6.dp)
-    val borderColor = if (isToday) Color(0xFF1E8A3B) else Color.Transparent
+    val borderColor = if (isToday) Color(0xFF000000) else Color.Transparent
 
     Box(
         modifier = modifier
             .height(42.dp)
             .background(bg, shape)
-            .then(
-                if (isToday) Modifier.border(width = 1.dp, color = borderColor, shape = shape)
-                else Modifier
-            ),
+            .then(if (isToday) Modifier.border(1.dp, borderColor, shape) else Modifier)
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(

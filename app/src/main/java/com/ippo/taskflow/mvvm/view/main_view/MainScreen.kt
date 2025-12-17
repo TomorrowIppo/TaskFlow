@@ -9,24 +9,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,9 +26,11 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.ippo.taskflow.activity.ui.theme.TaskFlowGreen
 import com.ippo.taskflow.activity.ui.theme.TaskFlowLightGreen
+import com.ippo.taskflow.mvvm.model.Group
 import com.ippo.taskflow.mvvm.model.Task
 import com.ippo.taskflow.mvvm.model.TaskStatus
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -51,21 +40,39 @@ import java.util.Locale
 fun MainScreen(
     authViewModel: AuthViewModel,
     taskViewModel: TaskViewModel,
+    groupViewModel: GroupViewModel, // 추가: groupName 표시용
     onNavigateToSettings: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToGroups: () -> Unit,
-    onNavigateToEditTask: (String) -> Unit, // ✅ 추가: taskId 받아 EditTaskScreen으로
+    onNavigateToEditTask: (String) -> Unit,
 ) {
     // ----- ViewModel State Observe -----
     val firebaseUser by authViewModel.currentUser.collectAsState()
     val profile by authViewModel.profile.collectAsState()
 
-    val taskList by taskViewModel.taskList.collectAsState()
+    // 홈(내 담당) 전용 목록/완료율
+    val taskList by taskViewModel.myTasks.collectAsState()
+    val completionPercentage by taskViewModel.myCompletionPercentage.collectAsState()
+
+    // 그룹 목록 (내가 속한 그룹들) : groupId -> name 매핑에 사용
+    val groupList by groupViewModel.groupList.collectAsState()
+
+    // 공용 로딩/에러
     val isLoadingTasks by taskViewModel.isLoading.collectAsState()
     val taskError by taskViewModel.error.collectAsState()
 
-    // ⭐️ ViewModel에서 계산된 완료율
-    val completionPercentage by taskViewModel.completionPercentage.collectAsState()
+    // uid 결정 (프로필 uid 우선, 없으면 Firebase uid)
+    val uid = profile?.uid ?: firebaseUser?.uid
+
+    // 홈 진입/uid 변경 시:
+    // 1) 내 담당 "오늘" Task 로드
+    // 2) 내 그룹 목록 로드 (groupId -> name 표시용)
+    LaunchedEffect(uid) {
+        if (!uid.isNullOrBlank()) {
+            taskViewModel.loadMyAssignedTasks(uid)
+            groupViewModel.loadGroups()
+        }
+    }
 
     // 이름: User 프로필 → FirebaseUser.displayName 순으로 우선 사용
     val userName = when {
@@ -77,8 +84,12 @@ fun MainScreen(
     // 사진 URL (없으면 null → 기본 아바타 렌더링)
     val photoUrl = firebaseUser?.photoUrl?.toString()
 
-    Scaffold(
-    ) { innerPadding ->
+    // groupId -> groupName 빠른 조회용 Map
+    val groupNameMap = remember(groupList) {
+        groupList.associate { it.groupId to it.name }
+    }
+
+    Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
                 .fillMaxSize()
@@ -90,23 +101,41 @@ fun MainScreen(
                 MainHeader(
                     userName = userName,
                     photoUrl = photoUrl,
+                    statusMessage = profile?.statusMsg,
                     onSettingsClick = onNavigateToSettings
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // 진행률 대시보드
+                val totalTasks = taskList.size
+
                 ProgressDashboard(
+                    totalTasks = totalTasks,
                     completionPercentage = completionPercentage
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Task 목록 제목
-                Text(
-                    text = "오늘의 Task",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "오늘의 Task",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+
+                    // (선택) 그룹 화면 바로가기
+                    Text(
+                        text = "그룹 보기",
+                        color = TaskFlowGreen,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable { onNavigateToGroups() }
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -115,9 +144,8 @@ fun MainScreen(
                     tasks = taskList,
                     isLoading = isLoadingTasks,
                     errorMessage = taskError,
-                    onTaskClick = { taskId ->
-                        onNavigateToEditTask(taskId) // ✅ 카드 클릭 → Edit 이동
-                    },
+                    groupNameMap = groupNameMap,
+                    onTaskClick = { taskId -> onNavigateToEditTask(taskId) },
                     onTaskStatusToggle = { task ->
                         val newStatus =
                             if (task.status == TaskStatus.DONE) TaskStatus.TODO.name else TaskStatus.DONE.name
@@ -132,6 +160,7 @@ fun MainScreen(
 @Composable
 private fun MainHeader(
     userName: String,
+    statusMessage: String?,
     photoUrl: String?,
     onSettingsClick: () -> Unit,
 ) {
@@ -141,22 +170,16 @@ private fun MainHeader(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // 프로필 사진 / 기본 아바타
             if (photoUrl != null) {
                 AsyncImage(
                     model = photoUrl,
                     contentDescription = "Profile Image",
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape),
+                    modifier = Modifier.size(48.dp).clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(TaskFlowGreen),
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(TaskFlowGreen),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -171,9 +194,11 @@ private fun MainHeader(
 
             Column {
                 Text(
-                    text = "안녕!",
+                    text = statusMessage?.takeIf { it.isNotBlank() } ?: "오늘도 화이팅!",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = userName,
@@ -206,8 +231,22 @@ private fun MainHeader(
 
 @Composable
 private fun ProgressDashboard(
+    totalTasks: Int,
     completionPercentage: Int,
 ) {
+    val message = remember(completionPercentage) {
+        when {
+            totalTasks == 0 -> "오늘의 Task = 0\n휴식 중!"
+            completionPercentage == 0 -> "오늘의 Task를\n시작해볼까요?"
+            completionPercentage in 1..19 -> "워밍업 완료!\n천천히 끝까지!"
+            completionPercentage in 20..49 -> "페이스 잡았어!\n계속 화이팅"
+            completionPercentage in 50..79 -> "벌써 절반이나!\n이제 절반밖에!"
+            completionPercentage in 80..99 -> "거의 끝!\n마무리가 젤 중요!"
+            completionPercentage == 100 -> "오늘의 Task\n올클리어!"
+            else -> "오늘의 Task \n 진행 중!"
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -223,7 +262,7 @@ private fun ProgressDashboard(
         ) {
             Column(modifier = Modifier.weight(1.2f)) {
                 Text(
-                    text = "오늘의 Task가 거의\n완료됐어요!",
+                    text = message,
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
@@ -273,14 +312,13 @@ private fun TaskListSection(
     tasks: List<Task>,
     isLoading: Boolean,
     errorMessage: String?,
-    onTaskClick: (String) -> Unit,     // ✅ 추가
+    groupNameMap: Map<String, String>,
+    onTaskClick: (String) -> Unit,
     onTaskStatusToggle: (Task) -> Unit,
 ) {
     if (isLoading) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(text = "로딩 중...", color = Color.Gray)
@@ -290,9 +328,7 @@ private fun TaskListSection(
 
     if (!errorMessage.isNullOrBlank()) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(text = errorMessage, color = Color.Red, fontSize = 12.sp)
@@ -301,9 +337,7 @@ private fun TaskListSection(
 
     if (tasks.isEmpty()) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(text = "오늘 등록된 Task가 없습니다.", color = Color.Gray)
@@ -317,9 +351,12 @@ private fun TaskListSection(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(tasks, key = { it.taskId }) { task ->
+            val groupName = groupNameMap[task.groupId]?.ifBlank { null } ?: "알 수 없는 그룹"
+
             TaskCard(
                 task = task,
-                onClick = { onTaskClick(task.taskId) },      // ✅ 카드 클릭 → Edit
+                groupName = groupName,
+                onClick = { onTaskClick(task.taskId) },
                 onToggleStatus = { onTaskStatusToggle(task) }
             )
         }
@@ -329,21 +366,18 @@ private fun TaskListSection(
 @Composable
 private fun TaskCard(
     task: Task,
-    onClick: () -> Unit,        // ✅ 추가
+    groupName: String,
+    onClick: () -> Unit,
     onToggleStatus: () -> Unit,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },   // ✅ 카드 전체 클릭
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -369,8 +403,15 @@ private fun TaskCard(
                 val dueText = formatDueDate(task.dueDate)
                 val priorityText = "우선순위 ${task.priority}"
 
+                // 그룹명 + due + priority
+                val meta = listOfNotNull(
+                    groupName.takeIf { it.isNotBlank() },
+                    dueText,
+                    priorityText
+                ).joinToString(" • ")
+
                 Text(
-                    text = listOfNotNull(dueText, priorityText).joinToString(" • "),
+                    text = meta,
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray,
                     maxLines = 1,

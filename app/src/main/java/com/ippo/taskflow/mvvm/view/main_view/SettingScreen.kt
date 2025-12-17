@@ -48,7 +48,6 @@ fun SettingScreen(
         onLogout = {
             if (!isLoading) {
                 authViewModel.signOut()
-                onNavigateToLogin()
             }
         }
     )
@@ -86,7 +85,7 @@ private fun SettingScreenScaffold(
                 }
             )
         }
-        // ✅ [수정] bottomBar 제거: 전역 하단바(TaskFlowBottomNavBar)는 MainActivity에서 관리
+        // [수정] bottomBar 제거: 전역 하단바(TaskFlowBottomNavBar)는 MainActivity에서 관리
         // SettingScreen은 shouldShowBottomBar()에서 숨김 대상(route == settings)로 처리 가능
     ) { innerPadding ->
         Column(

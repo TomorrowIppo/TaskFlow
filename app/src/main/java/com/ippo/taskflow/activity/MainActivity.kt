@@ -145,16 +145,25 @@ fun MainAppNavHost(
             modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
             composable(Destinations.HOME_ROUTE) {
-                MainScreen(authViewModel, taskViewModel,
-                    { navController.navigate(Destinations.SETTINGS_ROUTE) },
-                    { navController.navigate(Destinations.PROFILE_ROUTE) },
-                    { navController.navigate(Destinations.GROUPS_ROUTE) },
-                    { taskId -> navController.navigate(Destinations.editTaskRoute(taskId)) }
+                MainScreen(
+                    authViewModel = authViewModel,
+                    taskViewModel = taskViewModel,
+                    groupViewModel = groupViewModel,
+                    onNavigateToSettings = { navController.navigate(Destinations.SETTINGS_ROUTE) },
+                    onNavigateToProfile = { navController.navigate(Destinations.PROFILE_ROUTE) },
+                    onNavigateToGroups = { navController.navigate(Destinations.GROUPS_ROUTE) },
+                    onNavigateToEditTask = { taskId -> navController.navigate(Destinations.editTaskRoute(taskId)) }
                 )
             }
 
             composable(Destinations.PROFILE_ROUTE) {
-                ProfileScreen(authViewModel, taskViewModel, { navController.navigate(Destinations.PROFILE_SETTING_ROUTE) } , { navController.popBackStack() })
+                ProfileScreen(
+                    authViewModel = authViewModel,
+                    taskViewModel = taskViewModel,
+                    groupViewModel = groupViewModel,
+                    onNavigateToSettings = { navController.navigate(Destinations.PROFILE_SETTING_ROUTE) },
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
 
             composable(Destinations.PROFILE_SETTING_ROUTE) {
@@ -176,7 +185,20 @@ fun MainAppNavHost(
             }
 
             composable(Destinations.SETTINGS_ROUTE) {
-                SettingScreen(authViewModel, { navController.popBackStack() }, { authViewModel.signOut() }, { navController.navigate(Destinations.PROFILE_SETTING_ROUTE) }, {}, {}, {}, {})
+                SettingScreen(
+                    authViewModel = authViewModel,
+                    onNavigateToLogin = {},
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToProfileSetting = {
+                        navController.navigate(Destinations.PROFILE_SETTING_ROUTE)
+                    },
+                    onNavigateToSecurity = { /* TODO */ },
+                    onNavigateToTheme = { /* TODO */ },
+                    onNavigateToAbout = { /* TODO */ },
+                    onNavigateToEtc = { /* TODO */ }
+                )
             }
 
             composable(Destinations.GROUPS_ROUTE) {
