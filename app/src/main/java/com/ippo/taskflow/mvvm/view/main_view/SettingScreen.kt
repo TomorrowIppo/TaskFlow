@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
 
-// 💡 MVVM 표준: ViewModel + 네비게이션 액션만 인자로 받는다.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingScreen(
@@ -36,10 +35,8 @@ fun SettingScreen(
     onNavigateToAbout: () -> Unit,
     onNavigateToEtc: () -> Unit,
 ) {
-    // 1. ViewModel의 상태를 관찰한다.
     val isLoading by authViewModel.isLoading.collectAsState(initial = false)
 
-    // 2. ViewModel → 순수 UI 레이어로 브릿지
     SettingScreenScaffold(
         isLoading = isLoading,
         onNavigateBack = onNavigateBack,
@@ -57,10 +54,6 @@ fun SettingScreen(
     )
 }
 
-/**
- * ViewModel에 의존하지 않는 순수 UI Composable
- * 👉 Preview에서는 이걸 직접 호출한다.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingScreenScaffold(
@@ -92,22 +85,19 @@ private fun SettingScreenScaffold(
                     }
                 }
             )
-        },
-        bottomBar = {
-            TaskFlowBottomNavBar()
         }
+        // ✅ [수정] bottomBar 제거: 전역 하단바(TaskFlowBottomNavBar)는 MainActivity에서 관리
+        // SettingScreen은 shouldShowBottomBar()에서 숨김 대상(route == settings)로 처리 가능
     ) { innerPadding ->
-        // 실제 Setting UI
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5)), // Figma 배경 느낌
+                .background(Color(0xFFF5F5F5)),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Figma 기준 카드 컨테이너
             Surface(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
@@ -136,7 +126,6 @@ private fun SettingScreenScaffold(
                     Divider()
                     SettingMenuItem(title = "기타", onClick = onNavigateToEtc)
                     Divider()
-                    // 🔴 로그아웃
                     SettingMenuItem(
                         title = "로그아웃",
                         isDestructive = true,
@@ -148,10 +137,6 @@ private fun SettingScreenScaffold(
     }
 }
 
-/**
- * 단일 설정 항목 Composable
- * - Figma 리스트 아이템 느낌으로 패딩/폰트 맞춤
- */
 @Composable
 private fun SettingMenuItem(
     title: String,
@@ -176,7 +161,6 @@ private fun SettingMenuItem(
             ),
             modifier = Modifier.weight(1f)
         )
-        // ▶ 우측 화살표(Placeholder) — 나중에 아이콘 리소스로 교체 가능
         Text(
             text = "›",
             style = MaterialTheme.typography.bodyLarge
@@ -185,13 +169,13 @@ private fun SettingMenuItem(
 }
 
 /**
- * DailyTaskScreen 과 동일하게 사용할 하단 네비게이션 바 (Home / Group / Profile)
- * - 실제 네비게이션 람다는 NavHost 쪽에서 교체 예정.
+ * (기존 코드 유지) DailyTaskScreen 과 동일하게 사용할 하단 네비게이션 바 (Home / Group / Profile)
+ * - 현재는 Screen 내부에서 호출되지 않음 (전역 바 사용)
  */
 @Composable
 private fun TaskFlowBottomNavBar() {
     Surface(
-        color = Color(0xFF9CFFC4), // Figma 하단 그린 톤과 비슷하게
+        color = Color(0xFF9CFFC4),
         tonalElevation = 3.dp,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
@@ -206,17 +190,17 @@ private fun TaskFlowBottomNavBar() {
             BottomNavItem(
                 icon = Icons.Default.Home,
                 label = "Home",
-                onClick = { /* TODO: Home 이동 */ }
+                onClick = { }
             )
             BottomNavItem(
                 icon = Icons.Default.Group,
                 label = "Group",
-                onClick = { /* TODO: Group 이동 */ }
+                onClick = { }
             )
             BottomNavItem(
                 icon = Icons.Default.Person,
                 label = "Profile",
-                onClick = { /* TODO: Profile 이동 */ }
+                onClick = { }
             )
         }
     }
@@ -244,14 +228,10 @@ private fun BottomNavItem(
     }
 }
 
-/**
- * 🖼 Preview용 Composable
- * - ViewModel 없이 순수 UI만 확인
- */
 @Preview(showBackground = true)
 @Composable
 private fun SettingScreenPreview() {
-    MaterialTheme { // 프로젝트 테마가 있으면 여기서 감싸도 됨 (ex. TaskFlowTheme)
+    MaterialTheme {
         SettingScreenScaffold(
             isLoading = false,
             onNavigateBack = {},

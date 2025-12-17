@@ -31,7 +31,6 @@ val TaskFlowLightGreen = Color(0xFFB9F6CA)
 fun AddGroupScreen(
     groupViewModel: GroupViewModel,
     authViewModel: AuthViewModel,
-    // 🚨 [수정] NavHost의 onTaskCreated 콜백에 맞춰 통일 (onGroupAdded 대신 사용)
     onTaskCreated: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
@@ -46,27 +45,21 @@ fun AddGroupScreen(
     val isLoading by groupViewModel.isLoading.collectAsState()
     val groupError by groupViewModel.error.collectAsState()
 
-    val isCreateEnabled = groupName.isNotBlank() // 생성자 본인은 자동 멤버이므로 이것만 체크
+    val isCreateEnabled = groupName.isNotBlank()
 
     // 💡 Side Effect: Group 생성 성공 시 Navigaton
     LaunchedEffect(groupViewModel.groupCreationSuccess) {
         groupViewModel.groupCreationSuccess.collect { isSuccess ->
             if (isSuccess) {
                 onTaskCreated()
-                // 성공 후 상태 초기화 (옵션)
                 groupViewModel.resetGroupCreationStatus()
             }
         }
     }
 
-    Scaffold(
-        // 🚨 [수정] AddGroupScreen에서는 메인 BottomBar를 사용하지 않는 것이 일반적입니다.
-        // 필요하다면 임시 Placeholder로 대체하거나, 메인 NavHost의 BottomBar 설정을 따르세요.
-        bottomBar = {
-            // AddGroupBottomNavBar(onHomeClick = {}, onGroupsClick = {}, onProfileClick = {})
-            // 현재 화면에서는 네비게이션 복잡도를 줄이기 위해 비활성화
-        }
-    ) { innerPadding ->
+    // ✅ [수정] 이 화면은 MainAppNavHost에서 bottomBar를 숨기도록 처리됨.
+    // 따라서 Screen 내부 Scaffold의 bottomBar는 제거한다.
+    Scaffold { innerPadding ->
         Surface(
             modifier = Modifier
                 .fillMaxSize()
@@ -127,7 +120,7 @@ fun AddGroupScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // 멤버 이메일 추가 영역 (UI + authViewModel.getUidByEmail 활용)
+                // 멤버 이메일 추가 영역
                 Text(
                     text = "멤버 이메일로 초대",
                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -158,10 +151,8 @@ fun AddGroupScreen(
                             val email = inviteEmail.trim()
                             if (email.isBlank()) return@Button
 
-                            // 이메일로 UID 검색 → 성공하면 invitedEmails 목록에 추가
                             authViewModel.getUidByEmail(email) { uid ->
                                 if (uid != null) {
-                                    // 이미 추가된 이메일이면 중복 추가 방지
                                     if (!invitedEmails.contains(email)) {
                                         invitedEmails = invitedEmails + email
                                     }
@@ -218,13 +209,9 @@ fun AddGroupScreen(
                 // Group 추가 버튼
                 Button(
                     onClick = {
-                        // 💡 GroupViewModel 내부에서 groupCreationSuccess 상태를 업데이트해야 합니다.
                         groupViewModel.createGroup(
                             name = groupName,
                             description = groupDescription
-                            // 초대된 이메일 처리 로직은 ViewModel에 따라 달라짐.
-                            // members = invitedEmails.mapNotNull { authViewModel.getUidByEmail(it) }
-                            // 이메일은 생성 후 GroupDetail에서 개별 초대하는 것이 일반적일 수 있습니다.
                         )
                     },
                     modifier = Modifier
@@ -260,9 +247,6 @@ fun AddGroupScreen(
 
 // --- 보조 컴포넌트 (TaskFlowInputBox, AddGroupTopBar, AddGroupBottomNavBar) ---
 
-/**
- * Figma 스타일에 맞춘 공통 입력 박스 컴포넌트
- */
 @Composable
 private fun TaskFlowInputBox(
     value: String,
@@ -281,8 +265,7 @@ private fun TaskFlowInputBox(
         onValueChange = onValueChange,
         singleLine = singleLine,
         textStyle = textStyle,
-        modifier = modifier
-            .fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         decorationBox = { innerTextField ->
             Box(
                 modifier = Modifier
@@ -297,9 +280,7 @@ private fun TaskFlowInputBox(
                 if (value.isEmpty()) {
                     Text(
                         text = placeholder,
-                        style = textStyle.copy(
-                            color = Color.Gray
-                        )
+                        style = textStyle.copy(color = Color.Gray)
                     )
                 }
                 innerTextField()
@@ -330,49 +311,5 @@ private fun AddGroupTopBar(
                 fontWeight = FontWeight.Bold
             )
         )
-    }
-}
-
-// 🚨 [참고] 이 BottomNavBar는 이 화면에서 사용되지 않습니다.
-@Composable
-private fun AddGroupBottomNavBar(
-    onHomeClick: () -> Unit,
-    onGroupsClick: () -> Unit,
-    onProfileClick: () -> Unit,
-) {
-    Surface(
-        tonalElevation = 8.dp,
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(TaskFlowLightGreen)
-                .padding(horizontal = 40.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onHomeClick) {
-                Icon(
-                    imageVector = Icons.Filled.Home,
-                    contentDescription = "Home",
-                    tint = Color.Black
-                )
-            }
-            IconButton(onClick = onGroupsClick) {
-                Icon(
-                    imageVector = Icons.Filled.Group,
-                    contentDescription = "Groups",
-                    tint = TaskFlowGreen   // Group 탭 강조
-                )
-            }
-            IconButton(onClick = onProfileClick) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = "Profile",
-                    tint = Color.Black
-                )
-            }
-        }
     }
 }
