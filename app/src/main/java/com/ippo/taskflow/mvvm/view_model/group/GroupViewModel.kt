@@ -2,13 +2,14 @@ package com.ippo.taskflow.mvvm.view_model.group
 
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath // ✅ [추가] documentId() 조회용
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.ippo.taskflow.mvvm.model.Group
 import com.ippo.taskflow.mvvm.model.User
-import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import com.ippo.taskflow.mvvm.view_model.auth.AuthViewModel
+import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Date
@@ -24,11 +25,9 @@ class GroupViewModel(
     private val _groupList = MutableStateFlow<List<Group>>(emptyList())
     val groupList: StateFlow<List<Group>> = _groupList
 
-    // ✅ 추가: 현재 선택된 그룹의 상세 정보
     private val _currentGroup = MutableStateFlow<Group?>(null)
     val currentGroup: StateFlow<Group?> = _currentGroup
 
-    // ✅ 추가: 현재 그룹의 멤버 프로필 목록
     private val _currentGroupMembers = MutableStateFlow<List<User>>(emptyList())
     val currentGroupMembers: StateFlow<List<User>> = _currentGroupMembers
 
@@ -38,9 +37,11 @@ class GroupViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    // 💡 [새로 추가된 프로퍼티] 그룹 생성 성공 상태
     private val _groupCreationSuccess = MutableStateFlow(false)
     val groupCreationSuccess: StateFlow<Boolean> = _groupCreationSuccess
+
+    private val _createdGroupId = MutableStateFlow<String?>(null)
+    val createdGroupId: StateFlow<String?> = _createdGroupId
 
     private var groupDetailListener: ListenerRegistration? = null
     private var groupMembersListener: ListenerRegistration? = null
@@ -54,16 +55,11 @@ class GroupViewModel(
         groupMembersListener?.remove()
     }
 
-    /**
-     * 그룹 생성 성공 상태를 초기화합니다. (화면에서 성공 처리 후 호출)
-     */
     fun resetGroupCreationStatus() {
         _groupCreationSuccess.value = false
+        _createdGroupId.value = null
     }
 
-    /**
-     * 현재 사용자가 멤버로 포함된 그룹 목록을 실시간으로 불러옵니다.
-     */
     fun loadGroups() {
         val userId = currentUserId ?: return
         _isLoading.value = true
@@ -80,7 +76,6 @@ class GroupViewModel(
 
                 if (snapshot != null) {
                     val groups = snapshot.documents.mapNotNull { document ->
-                        // DocumentId를 수동으로 설정하여 Group 객체 생성
                         document.toObject(Group::class.java)?.copy(groupId = document.id)
                     }
                     _groupList.value = groups
@@ -88,9 +83,6 @@ class GroupViewModel(
             }
     }
 
-    /**
-     * 단일 그룹의 상세 정보를 실시간으로 로드합니다.
-     */
     fun loadGroupDetail(groupId: String) {
         groupDetailListener?.remove()
         if (groupId.isBlank()) return
@@ -106,7 +98,6 @@ class GroupViewModel(
                 val group = snapshot?.toObject(Group::class.java)?.copy(groupId = snapshot.id)
                 _currentGroup.value = group
 
-                // 그룹 정보가 로드되면 멤버 정보도 로드 시작
                 if (group != null) {
                     loadGroupMembers(group.memberUids)
                 } else {
@@ -115,9 +106,6 @@ class GroupViewModel(
             }
     }
 
-    /**
-     * 그룹 멤버들의 프로필 정보를 로드합니다.
-     */
     private fun loadGroupMembers(memberUids: List<String>) {
         groupMembersListener?.remove()
         if (memberUids.isEmpty()) {
@@ -126,18 +114,13 @@ class GroupViewModel(
         }
 
         groupMembersListener = db.collection("users")
-            .whereIn("uid", memberUids)
+            .whereIn(FieldPath.documentId(), memberUids) // ✅ [수정] uid 필드가 아닌 문서ID 기준 조회
             .addSnapshotListener { snapshot, e ->
                 if (e != null || snapshot == null) return@addSnapshotListener
-
-                val members = snapshot.toObjects(User::class.java)
-                _currentGroupMembers.value = members
+                _currentGroupMembers.value = snapshot.toObjects(User::class.java)
             }
     }
 
-    /**
-     * 새로운 그룹을 생성합니다.
-     */
     fun createGroup(name: String, description: String) {
         val userId = currentUserId ?: run {
             _error.value = "로그인이 필요합니다."
@@ -151,7 +134,8 @@ class GroupViewModel(
 
         _isLoading.value = true
         _error.value = null
-        _groupCreationSuccess.value = false // 생성 시도 시 초기화
+        _groupCreationSuccess.value = false
+        _createdGroupId.value = null
 
         val newGroup = Group(
             name = name,
@@ -164,9 +148,9 @@ class GroupViewModel(
 
         db.collection("groups")
             .add(newGroup)
-            .addOnSuccessListener {
+            .addOnSuccessListener { docRef ->
                 _isLoading.value = false
-                // 💡 그룹 생성 성공 시 StateFlow 업데이트
+                _createdGroupId.value = docRef.id
                 _groupCreationSuccess.value = true
             }
             .addOnFailureListener { e ->
@@ -175,36 +159,26 @@ class GroupViewModel(
             }
     }
 
-    /**
-     * 그룹 삭제 함수 (Task 종속 삭제 호출)
-     */
     fun deleteGroup(groupId: String) {
         if (groupId.isBlank()) {
             _error.value = "그룹 ID가 유효하지 않습니다."
             return
         }
 
-        // 1. TaskViewModel에게 해당 그룹의 모든 Task 삭제를 명령합니다. (Cascading Delete)
         taskViewModel.deleteAllTasksInGroup(groupId)
 
-        // 2. 그룹 문서 삭제 실행
         _isLoading.value = true
         _error.value = null
 
         db.collection("groups").document(groupId)
             .delete()
-            .addOnSuccessListener {
-                _isLoading.value = false
-            }
+            .addOnSuccessListener { _isLoading.value = false }
             .addOnFailureListener { e ->
                 _isLoading.value = false
                 _error.value = "그룹 삭제 실패: ${e.message}"
             }
     }
 
-    /**
-     * 이메일을 UID로 검색 후 그룹에 추가를 요청합니다.
-     */
     fun inviteMemberByEmail(groupId: String, email: String) {
         if (groupId.isBlank()) {
             _error.value = "그룹 ID가 유효하지 않습니다."
@@ -214,43 +188,31 @@ class GroupViewModel(
         _isLoading.value = true
         _error.value = null
 
-        // 1. AuthViewModel을 통해 UID 검색 요청
         authViewModel.getUidByEmail(email) { memberUid ->
             if (memberUid != null) {
-                // 2. UID 검색 성공 시, 멤버 추가 실행
                 addMember(groupId, memberUid)
             } else {
-                // 3. 사용자 검색 실패 시
                 _isLoading.value = false
                 _error.value = "오류: 해당 이메일의 사용자를 찾을 수 없습니다."
             }
         }
     }
 
-    /**
-     * 멤버 UID를 배열에 추가합니다.
-     */
     fun addMember(groupId: String, memberId: String) {
         if (groupId.isBlank() || memberId.isBlank()) {
             _error.value = "그룹 ID 또는 멤버 ID가 유효하지 않습니다."
             return
         }
 
-        // 💡 isLoading은 inviteMemberByEmail 또는 deleteMember에서 설정되므로 여기서 다시 설정할 필요는 없습니다.
         db.collection("groups").document(groupId)
             .update("memberUids", FieldValue.arrayUnion(memberId))
-            .addOnSuccessListener {
-                _isLoading.value = false
-            }
+            .addOnSuccessListener { _isLoading.value = false }
             .addOnFailureListener { e ->
                 _isLoading.value = false
                 _error.value = "멤버 추가 실패: ${e.message}"
             }
     }
 
-    /**
-     * 멤버 UID를 배열에서 제거합니다.
-     */
     fun deleteMember(groupId: String, memberId: String) {
         if (groupId.isBlank() || memberId.isBlank()) {
             _error.value = "그룹 ID 또는 멤버 ID가 유효하지 않습니다."
@@ -262,9 +224,7 @@ class GroupViewModel(
 
         db.collection("groups").document(groupId)
             .update("memberUids", FieldValue.arrayRemove(memberId))
-            .addOnSuccessListener {
-                _isLoading.value = false
-            }
+            .addOnSuccessListener { _isLoading.value = false }
             .addOnFailureListener { e ->
                 _isLoading.value = false
                 _error.value = "멤버 삭제 실패: ${e.message}"
