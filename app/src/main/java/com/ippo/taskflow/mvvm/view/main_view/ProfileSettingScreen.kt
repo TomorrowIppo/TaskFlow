@@ -99,11 +99,11 @@ fun ProfileSettingScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
-        // ✅ [수정] bottomBar 제거: 전역 BottomNav(TaskFlowBottomNavBar)는 MainActivity에서만 관리
+        //  [수정] bottomBar 제거: 전역 BottomNav(TaskFlowBottomNavBar)는 MainActivity에서만 관리
         // profileSetting route는 shouldShowBottomBar()에서 숨김 처리
     ) { padding ->
 
-        // 🚨 로딩 및 Null 체크
+        // 로딩 및 Null 체크
         if (currentUser == null) {
             LaunchedEffect(Unit) { onSignedOut() }
             return@Scaffold
