@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.auth.FirebaseAuth
 import com.ippo.taskflow.activity.ui.theme.*
 import com.ippo.taskflow.mvvm.model.Task
 import com.ippo.taskflow.mvvm.model.TaskStatus
@@ -26,7 +28,7 @@ import com.ippo.taskflow.mvvm.view_model.group.GroupViewModel
 import com.ippo.taskflow.mvvm.view_model.task.TaskMetrics
 import com.ippo.taskflow.mvvm.view_model.task.TaskViewModel
 
-// ⭐️ [에러 해결] Enum 정의 누락 방지
+// Redeclaration 방지를 위해 정의 유지
 enum class GroupDetailTab {
     FLOW, LIST
 }
@@ -44,21 +46,56 @@ fun GroupDetailScreen(
     val group by groupViewModel.currentGroup.collectAsState()
     val taskList by taskViewModel.taskList.collectAsState()
     val metrics by taskViewModel.taskMetrics.collectAsState()
+    val currentUserId = remember { FirebaseAuth.getInstance().currentUser?.uid }
 
-    // ⭐️ [에러 해결] GroupDetailTab.FLOW 참조 가능
     var selectedTab by remember { mutableStateOf(GroupDetailTab.FLOW) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(groupId) {
         groupViewModel.loadGroupDetail(groupId)
         taskViewModel.loadTasks(groupId)
     }
 
+    // 🛠️ [버그 해결] 사용자님의 ViewModel에 있는 loadTaskById를 사용하여 데이터 잔상 제거
+    val navigateWithDataSync: (String) -> Unit = { taskId ->
+        taskViewModel.loadTaskById(taskId) // ⭐️ ViewModel의 _selectedTask 상태를 즉시 갱신
+        onNavigateToTaskDetail(taskId)
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("그룹 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("이 그룹과 관련된 모든 Task가 영구적으로 삭제됩니다. 정말 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        groupViewModel.deleteGroup(groupId)
+                        showDeleteDialog = false
+                        onNavigateBack()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) { Text("삭제") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(text = group?.name ?: "그룹 상세", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기") } },
-                actions = { IconButton(onClick = onNavigateToAddTask) { Icon(Icons.Default.Add, contentDescription = "Task 추가") } }
+                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기") } },
+                actions = {
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "그룹 삭제", tint = Color.Gray)
+                    }
+                    IconButton(onClick = onNavigateToAddTask) {
+                        Icon(Icons.Default.Add, contentDescription = "Task 추가")
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -83,15 +120,17 @@ fun GroupDetailScreen(
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Text("플로우차트 미리보기", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                                     val taskDependencyMap = createTaskDependencyMap(taskList)
-                                    // ⭐️ 중앙 정렬 버전 호출
-                                    TaskFlowChartVertical(taskList, taskDependencyMap, onNavigateToTaskDetail)
+                                    // ⭐️ 수정된 동기화 함수 적용
+                                    TaskFlowChartVertical(taskList, taskDependencyMap, navigateWithDataSync)
                                 }
                             }
                             item { MyTaskQuickAccess(onNavigateToAddTask) }
                         }
                     }
                     GroupDetailTab.LIST -> {
-                        TaskListScreen(taskList, onNavigateToTaskDetail, onNavigateToAddTask)
+                        val myTasks = taskList.filter { it.assignedToUid == currentUserId }
+                        // ⭐️ 수정된 동기화 함수 적용
+                        TaskListScreen(myTasks, navigateWithDataSync)
                     }
                 }
             }
@@ -99,81 +138,69 @@ fun GroupDetailScreen(
     }
 }
 
+// -------------------------------------------------------------
+// UI 컴포넌트들 (기존의 요청하신 디자인 유지)
+// -------------------------------------------------------------
 @Composable
-fun TaskFlowChartVertical(
-    tasks: List<Task>,
-    taskDependencyMap: Map<String?, List<Task>>,
-    onNavigateToTaskDetail: (String) -> Unit
-) {
-    val rootTasks = taskDependencyMap[null] ?: emptyList()
-    val horizontalScrollState = rememberScrollState()
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 300.dp, max = 600.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        if (tasks.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Task가 없습니다.", color = Color.Gray)
-            }
-            return@Card
+fun TaskListScreen(tasks: List<Task>, onNavigateToTaskDetail: (String) -> Unit) {
+    if (tasks.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("나에게 할당된 Task가 없습니다.", color = Color.Gray)
         }
+    } else {
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(tasks, key = { it.taskId }) { task ->
+                TaskNodeCardInList(task = task, onClick = { onNavigateToTaskDetail(task.taskId) })
+            }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+    }
+}
 
-        // ⭐️ [수정] Box와 horizontalScroll 조합으로 중앙 정렬 구현
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .horizontalScroll(horizontalScrollState),
-            contentAlignment = Alignment.TopCenter // 👈 가로축 중앙 정렬 핵심
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .wrapContentWidth(), // 👈 내용물만큼만 너비를 가짐
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                rootTasks.forEach { rootTask ->
-                    TaskTreeColumn(rootTask, taskDependencyMap, onNavigateToTaskDetail)
-                }
+@Composable
+fun TaskNodeCardInList(task: Task, onClick: () -> Unit) {
+    val statusColor = when (task.status) {
+        TaskStatus.DONE -> Color(0xFF66BB6A)
+        TaskStatus.IN_PROGRESS -> Color(0xFF42A5F5)
+        TaskStatus.BLOCKED -> Color(0xFFEF5350)
+        else -> Color(0xFFBDBDBD)
+    }
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth().height(75.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(statusColor).align(Alignment.TopCenter))
+            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = task.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = "우선순위: ${task.priority}", fontSize = 12.sp, color = Color.Gray)
             }
         }
     }
 }
 
 @Composable
-fun TaskTreeColumn(
-    task: Task,
-    taskDependencyMap: Map<String?, List<Task>>,
-    onNavigateToTaskDetail: (String) -> Unit
-) {
-    val children = taskDependencyMap[task.taskId] ?: emptyList()
+fun TaskFlowChartVertical(tasks: List<Task>, taskDependencyMap: Map<String?, List<Task>>, onNavigateToTaskDetail: (String) -> Unit) {
+    val rootTasks = taskDependencyMap[null] ?: emptyList()
+    val horizontalScrollState = rememberScrollState()
+    Card(modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp, max = 600.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+        if (tasks.isEmpty()) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Task가 없습니다.", color = Color.Gray) }
+            return@Card
+        }
+        Box(modifier = Modifier.fillMaxSize().horizontalScroll(horizontalScrollState), contentAlignment = Alignment.TopCenter) {
+            Column(modifier = Modifier.padding(20.dp).wrapContentWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                rootTasks.forEach { rootTask -> TaskTreeColumn(rootTask, taskDependencyMap, onNavigateToTaskDetail) }
+            }
+        }
+    }
+}
 
+@Composable
+fun TaskTreeColumn(task: Task, taskDependencyMap: Map<String?, List<Task>>, onNavigateToTaskDetail: (String) -> Unit) {
+    val children = taskDependencyMap[task.taskId] ?: emptyList()
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         TaskNodeCardInFlow(task) { onNavigateToTaskDetail(task.taskId) }
-
         if (children.isNotEmpty()) {
-            // 부모-자식 연결 세로선
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .height(20.dp)
-                    .background(Color.LightGray.copy(alpha = 0.6f))
-            )
-
-            // 자식들을 가로로 나열
-            Row(
-                modifier = Modifier.wrapContentWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                children.forEach { child ->
-                    TaskTreeColumn(child, taskDependencyMap, onNavigateToTaskDetail)
-                }
+            Box(modifier = Modifier.width(2.dp).height(20.dp).background(Color.LightGray.copy(alpha = 0.6f)))
+            Row(modifier = Modifier.wrapContentWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.Top) {
+                children.forEach { child -> TaskTreeColumn(child, taskDependencyMap, onNavigateToTaskDetail) }
             }
         }
     }
@@ -187,43 +214,16 @@ fun TaskNodeCardInFlow(task: Task, onClick: () -> Unit) {
         TaskStatus.BLOCKED -> Color(0xFFEF5350)
         else -> Color(0xFFBDBDBD)
     }
-
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .width(140.dp)
-            .height(65.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
+    Card(onClick = onClick, modifier = Modifier.width(140.dp).height(65.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF9F9F9)), elevation = CardDefaults.cardElevation(1.dp)) {
         Box(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(statusColor).align(Alignment.TopCenter))
-            Column(
-                modifier = Modifier.fillMaxSize().padding(8.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = task.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "우선순위: ${task.priority}",
-                    fontSize = 10.sp,
-                    color = Color.Gray
-                )
+            Column(modifier = Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = task.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(text = "우선순위: ${task.priority}", fontSize = 10.sp, color = Color.Gray)
             }
         }
     }
 }
-
-// -------------------------------------------------------------
-// ⭐️ 나머지 유틸리티 함수 (기존과 동일하게 유지)
-// -------------------------------------------------------------
 
 fun createTaskDependencyMap(tasks: List<Task>): Map<String?, List<Task>> {
     val map = mutableMapOf<String?, MutableList<Task>>()
@@ -236,16 +236,12 @@ fun createTaskDependencyMap(tasks: List<Task>): Map<String?, List<Task>> {
 
 @Composable
 fun TaskMetricsCard(metrics: TaskMetrics) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
         Row(modifier = Modifier.padding(20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-            MetricItem("할 일", metrics.todo, Color(0xFF42A5F5))
+            MetricItem("진행중", metrics.inProgress, Color(0xFF42A5F5))
             MetricItem("완료", metrics.done, Color(0xFF66BB6A))
             MetricItem("막힘", metrics.blocked, Color.Red)
+            MetricItem("진행대기", metrics.todo, Color.Gray)
         }
     }
 }
@@ -260,12 +256,7 @@ fun MetricItem(label: String, value: Int, color: Color) {
 
 @Composable
 fun MyTaskQuickAccess(onNavigateToAddTask: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.width(12.dp))
@@ -287,30 +278,5 @@ fun TabSelectionBar(selectedTab: GroupDetailTab, onTabSelected: (GroupDetailTab)
 
 @Composable
 fun TabButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) Color(0xFF69F0AE) else Color.White, contentColor = if (isSelected) Color.White else Color.Gray),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.height(40.dp)
-    ) { Text(text) }
-}
-
-@Composable
-fun TaskListScreen(tasks: List<Task>, onNavigateToTaskDetail: (String) -> Unit, onNavigateToAddTask: () -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(tasks, key = { it.taskId }) { task ->
-            Card(
-                onClick = { onNavigateToTaskDetail(task.taskId) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(1.dp)
-            ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(10.dp).background(Color(0xFFBDBDBD), RoundedCornerShape(5.dp)))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(task.title, fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-    }
+    Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) Color(0xFF69F0AE) else Color.White, contentColor = if (isSelected) Color.White else Color.Gray), shape = RoundedCornerShape(20.dp), modifier = Modifier.height(40.dp)) { Text(text) }
 }
