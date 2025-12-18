@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,8 +44,8 @@ fun GroupTaskScreen(
     groupViewModel: GroupViewModel,
     taskViewModel: TaskViewModel,
     onNavigateToMain: () -> Unit,
-    onNavigateToProfile: () -> Unit,
     onNavigateToAddGroup: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     onNavigateToGroupDetail: (groupId: String) -> Unit,
 ) {
     val groupList by groupViewModel.groupList.collectAsState()
@@ -55,66 +56,67 @@ fun GroupTaskScreen(
         groupViewModel.loadGroups()
     }
 
-    // ✅ [수정 1] Screen 내부에서 bottomBar를 그리지 않음 (MainActivity의 Scaffold가 담당)
-    Surface(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(
+    Scaffold { innerPadding ->
+        Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(innerPadding)
         ) {
-            GroupTopBar(
-                onBackClick = onNavigateToMain
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = "내 그룹",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                )
-                Text(
-                    text = "+ 새 그룹",
-                    color = TaskFlowGreen,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.clickable { onNavigateToAddGroup() }
-                )
-            }
+                TopBar(onBackClick = onNavigateToMain)
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (!errorMessage.isNullOrBlank()) {
-                Text(
-                    text = errorMessage!!,
-                    color = Color.Red,
-                    fontSize = 12.sp
-                )
                 Spacer(modifier = Modifier.height(8.dp))
-            }
 
-            GroupListSection(
-                groups = groupList,
-                isLoading = isLoading,
-                taskViewModel = taskViewModel,
-                onGroupClick = { groupId -> onNavigateToGroupDetail(groupId) },
-                onAddGroupClick = onNavigateToAddGroup
-            )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "내 그룹",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    )
+                    Text(
+                        text = "+ 새 그룹",
+                        color = TaskFlowGreen,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        modifier = Modifier.clickable { onNavigateToAddGroup() }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (!errorMessage.isNullOrBlank()) {
+                    Text(
+                        text = errorMessage!!,
+                        color = Color.Red,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                GroupListSection(
+                    groups = groupList,
+                    isLoading = isLoading,
+                    taskViewModel = taskViewModel,
+                    onGroupClick = onNavigateToGroupDetail,
+                    onAddGroupClick = onNavigateToAddGroup
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun GroupTopBar(
+private fun TopBar(
     onBackClick: () -> Unit,
 ) {
     Row(
@@ -125,7 +127,7 @@ private fun GroupTopBar(
     ) {
         IconButton(onClick = onBackClick) {
             Icon(
-                imageVector = Icons.Default.ArrowBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "뒤로가기"
             )
         }
@@ -157,11 +159,11 @@ private fun GroupListSection(
         }
         return
     }
-
+    // 진행률 통계 관련 AI 도움
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 96.dp)
+        contentPadding = PaddingValues(bottom = 100.dp)
     ) {
         items(groups, key = { it.groupId }) { group ->
             val metricsFlow = remember(group.groupId) {
@@ -169,9 +171,7 @@ private fun GroupListSection(
             }
             val metrics by metricsFlow.collectAsState()
 
-            // ✅ [수정 2] “진행 중” 정의 변경: TODO + IN_PROGRESS
             val inProgressCount = metrics.inProgress
-
             val completionRatio =
                 if (metrics.total == 0) 0f else metrics.done.toFloat() / metrics.total.toFloat()
 
@@ -223,8 +223,7 @@ private fun GroupCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row {
                     Icon(
                         imageVector = Icons.Default.Group,
                         contentDescription = "멤버 수",
@@ -234,8 +233,7 @@ private fun GroupCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = memberCount.toString(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
                     )
                 }
             }
@@ -244,35 +242,32 @@ private fun GroupCard(
 
             Text(
                 text = "${inProgressCount}개 진행 중",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
+                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
             LinearProgressIndicator(
-                progress = {completionRatio},
+                progress = { completionRatio },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
                     .clip(RoundedCornerShape(50)),
                 color = TaskFlowGreen,
-                trackColor = Color(0xFFE5E5E5),
-                // ✅ [수정 3] 오른쪽 초록 점(Stop indicator) 제거 (Material3 지원 버전일 때)
+                trackColor = Color(0xFFE5E5E5),// 옅은 회색
                 drawStopIndicator = {}
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Text(
-                    text = "${(completionRatio * 100).toInt()}%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = "${(completionRatio * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                    )
             }
         }
     }
@@ -287,17 +282,16 @@ private fun AddGroupCard(
             .fillMaxWidth()
             .height(120.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.White)
                 .padding(12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column{
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -313,12 +307,17 @@ private fun AddGroupCard(
                         textAlign = TextAlign.Center
                     )
                 }
+
                 Spacer(modifier = Modifier.height(8.dp))
+
                 Text(
                     text = "새로운 그룹 만들기",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF7A7A7A))
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF7A7A7A)
+                    )
                 )
             }
         }
     }
 }
+
